@@ -10,6 +10,8 @@ import uvicorn
 from ingestion.routes import UploadFileRoutes
 from ingestion.starrocks_connection import engine
 
+from processing.routes import MatchFileRoutes
+
 class SynchronoAPI:
     def __init__(self):
         self.app = FastAPI(lifespan=self._lifespan)
@@ -51,8 +53,11 @@ class SynchronoAPI:
         print(">>> Shutting down ...")
 
     def include_routers(self):
-        pyspark_routes = UploadFileRoutes()
-        self.app.include_router(pyspark_routes.router, prefix="/files")
+        upload_routes = UploadFileRoutes()
+        self.app.include_router(upload_routes.router, prefix="/files")
+
+        match_routes = MatchFileRoutes()
+        self.app.include_router(match_routes.router, prefix="/match")
 
     def run(self):
         uvicorn.run(self.app,port=9191)

@@ -13,9 +13,10 @@ class UploadFileHandler:
         self.client = minio_client
         self.bucket_name = bucket_name
         self.metadata_service = MetadataService(starrocks_engine)
-        print("Handler Initialized")
+        print("Upload Handler Initialized")
 
     async def upload_file(self, files: List[UploadFile] = File(...)):
+        print("Uploading Files...")
         uploaded_files = []
 
         for file in files:
@@ -33,6 +34,8 @@ class UploadFileHandler:
                 f"{timestamp}_{unique_id}_{file.filename}"
             )
 
+            print("putting object...")
+
             self.client.put_object(
                 bucket_name=self.bucket_name,
                 object_name=object_name,
@@ -40,7 +43,9 @@ class UploadFileHandler:
                 length=-1,
                 part_size=10 * 1024 * 1024,
                 content_type="text/csv"
-            )       
+            )
+
+            print("putting metadata...")
 
             uploaded_files.append({
                 "filename": file.filename,
@@ -53,6 +58,7 @@ class UploadFileHandler:
                 minio_path=object_name
             )
 
+        print("Files uploaded!")
         return {
             "message": "Files uploaded successfully",
             "uploaded_files": uploaded_files
