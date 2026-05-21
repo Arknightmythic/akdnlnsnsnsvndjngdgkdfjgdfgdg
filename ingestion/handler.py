@@ -1,5 +1,6 @@
 import uuid
 import io
+import os
 
 from typing import List
 from datetime import datetime
@@ -33,7 +34,7 @@ class UploadFileHandler:
             unique_id = uuid.uuid4().hex[:8]
 
             object_name = (
-                f"incoming/"
+                f"{os.getenv("INCOMING_FOLDER_PATH")}/"
                 f"{timestamp}_{unique_id}_{file.filename}"
             )
 
@@ -46,7 +47,7 @@ class UploadFileHandler:
             parquet_buffer.seek(0)
 
             parquet_object_name = (
-                f"parquet/"
+                f"{os.getenv("CURATED_FOLDER_PATH")}/"
                 f"{timestamp}_{unique_id}_{file.filename.replace('.csv', '.parquet')}"
             )
 
