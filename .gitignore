@@ -4,6 +4,7 @@ data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
+_pycache_/
 *.py[codz]
 *$py.class
 
@@ -132,6 +133,7 @@ ipython_config.py
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
+_pypackages_/
 
 # Celery stuff
 celerybeat-schedule*
@@ -219,6 +221,7 @@ tempCodeRunnerFile.py
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+_marimo_/
 
 # Streamlit
 .streamlit/secrets.toml

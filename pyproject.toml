@@ -1,0 +1,40 @@
+[project]
+name = "data-matching"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12.10"
+dependencies = [
+    "annotated-doc==0.0.4",
+    "annotated-types==0.7.0",
+    "anyio==4.13.0",
+    "argon2-cffi==25.1.0",
+    "argon2-cffi-bindings==25.1.0",
+    "certifi==2026.4.22",
+    "cffi==2.0.0",
+    "click==8.3.3",
+    "faker==40.18.0",
+    "fastapi==0.136.1",
+    "greenlet==3.5.0",
+    "h11==0.16.0",
+    "idna==3.15",
+    "minio==7.2.20",
+    "numpy==2.4.4",
+    "polars==1.40.1",
+    "polars-runtime-32==1.40.1",
+    "pyarrow==24.0.0",
+    "pycparser==3.0",
+    "pycryptodome==3.23.0",
+    "pydantic==2.13.4",
+    "pydantic-core==2.46.4",
+    "pymysql==1.1.3",
+    "python-dotenv==1.2.2",
+    "python-multipart==0.0.28",
+    "rapidfuzz==3.14.5",
+    "sqlalchemy==2.0.49",
+    "starlette==1.0.0",
+    "typing-extensions==4.15.0",
+    "typing-inspection==0.4.2",
+    "urllib3==2.7.0",
+    "uvicorn==0.47.0",
+]

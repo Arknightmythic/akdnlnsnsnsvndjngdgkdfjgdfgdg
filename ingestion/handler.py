@@ -1,10 +1,14 @@
 import uuid
+import io
+import os
 
 from typing import List
 from datetime import datetime
 from dotenv import load_dotenv
 from fastapi import UploadFile, File, HTTPException
+import polars as pl
 from .metadata_service import MetadataService
+from .grader_service import GraderService
 
 load_dotenv()
 
@@ -30,17 +34,29 @@ class UploadFileHandler:
             unique_id = uuid.uuid4().hex[:8]
 
             object_name = (
-                f"incoming/"
+                f"{os.getenv("INCOMING_FOLDER_PATH")}/"
                 f"{timestamp}_{unique_id}_{file.filename}"
             )
 
             print("putting object...")
+            content = await file.read()
+
+            lf = pl.scan_csv(io.BytesIO(content))
+
+            parquet_buffer = io.BytesIO()
+            lf.sink_parquet(parquet_buffer)
+            parquet_buffer.seek(0)
+
+            parquet_object_name = (
+                f"{os.getenv("CURATED_FOLDER_PATH")}/"
+                f"{timestamp}_{unique_id}_{file.filename.replace('.csv', '.parquet')}"
+            )
 
             self.client.put_object(
                 bucket_name=self.bucket_name,
-                object_name=object_name,
-                data=file.file,
-                length=-1,
+                object_name=parquet_object_name,
+                data=parquet_buffer,
+                length=parquet_buffer.getbuffer().nbytes,
                 part_size=10 * 1024 * 1024,
                 content_type="text/csv"
             )
@@ -49,18 +65,32 @@ class UploadFileHandler:
 
             uploaded_files.append({
                 "filename": file.filename,
-                "minio_path": object_name
+                "minio_path": parquet_object_name
             })
 
-            self.metadata_service.create_uploaded_file(
-                file_id=unique_id,
-                original_filename=file.filename,
-                minio_path=object_name
-            )
+            try:
+                row_count = lf.select(pl.len()).collect().item()
+                self.metadata_service.create_uploaded_file(
+                    file_id=unique_id,
+                    original_filename=file.filename,
+                    minio_path=parquet_object_name,
+                    row_count=row_count
+                )
+            except Exception as e:
+                print(f"Metadata creation fails for {object_name}: {e}\n")
+
+
+            try:
+                self.grader_service.grade_file(
+                    file_id=unique_id,
+                    lf=lf,
+                    minio_path=parquet_object_name
+                )
+            except Exception as e:
+                print(f"Grading fails for {object_name}: {e}\n")
 
         print("Files uploaded!")
         return {
             "message": "Files uploaded successfully",
             "uploaded_files": uploaded_files
         }
-        
