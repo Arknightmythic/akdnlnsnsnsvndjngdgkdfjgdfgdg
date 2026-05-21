@@ -1,6 +1,6 @@
+import time
 from sqlalchemy import text
 from datetime import datetime, timezone
-from util.timer import record_time
 import polars as pl
 
 
@@ -9,7 +9,6 @@ class GraderService:
     def __init__(self, engine):
         self.engine = engine
 
-    @record_time
     def _grade_dataframe(self, lf: pl.LazyFrame, file_id, minio_path) -> None:
         try:
             target_columns = {"nik", "nama", "tempat_lahir", "tanggal_lahir", "jenis_kelamin", "nama_ibu"}
@@ -110,11 +109,17 @@ class GraderService:
             print(f"Failed grading file for {minio_path}: {str(e)}")
             raise
 
-    def grade_file(self, file_id, file_to_be_graded, minio_path):
+    def grade_file(self, file_id, lf, minio_path):
         try:
-            lf = pl.scan_csv(file_to_be_graded)
+            grading_start = time.perf_counter()
             self._grade_dataframe(lf, file_id, minio_path)
+            grading_time = int((time.perf_counter() - grading_start) * 1000) # Turn it into ms
 
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text("UPDATE uploaded_files SET grading_time_ms = :grading_time_ms WHERE file_id = :file_id"),
+                    {"grading_time_ms": grading_time, "file_id": file_id}
+                )
         except Exception as e:
             print(f"Failed grading file: {minio_path}: {str(e)}")
             raise

@@ -11,7 +11,8 @@ class MetadataService:
         self,
         file_id,
         original_filename,
-        minio_path
+        minio_path,
+        row_count
     ):
 
         query = text("""
@@ -20,19 +21,20 @@ class MetadataService:
                 original_filename,
                 minio_path,
                 upload_timestamp,
-                processing_status
+                processing_status,
+                row_count
             )
             VALUES (
                 :file_id,
                 :original_filename,
                 :minio_path,
                 :upload_timestamp,
-                :processing_status
+                :processing_status,
+                :row_count
             )
         """)
 
         with self.engine.begin() as connection:
-
             connection.execute(
                 query,
                 {
@@ -40,6 +42,7 @@ class MetadataService:
                     "original_filename": original_filename,
                     "minio_path": minio_path,
                     "upload_timestamp": datetime.utcnow(),
-                    "processing_status": "UPLOADED"
+                    "processing_status": "UPLOADED",
+                    "row_count": row_count
                 }
             )

@@ -5,6 +5,7 @@ from typing import List
 from datetime import datetime
 from dotenv import load_dotenv
 from fastapi import UploadFile, File, HTTPException
+import polars as pl
 from .metadata_service import MetadataService
 from .grader_service import GraderService
 
@@ -38,25 +39,38 @@ class UploadFileHandler:
 
             content = await file.read()
 
+            lf = pl.scan_csv(io.BytesIO(content))
+
+            parquet_buffer = io.BytesIO()
+            lf.sink_parquet(parquet_buffer)
+            parquet_buffer.seek(0)
+
+            parquet_object_name = (
+                f"parquet/"
+                f"{timestamp}_{unique_id}_{file.filename.replace('.csv', '.parquet')}"
+            )
+
             self.client.put_object(
                 bucket_name=self.bucket_name,
-                object_name=object_name,
-                data=io.BytesIO(content),
-                length=len(content),
+                object_name=parquet_object_name,
+                data=parquet_buffer,
+                length=parquet_buffer.getbuffer().nbytes,
                 part_size=10 * 1024 * 1024,
-                content_type="text/csv"
-            )       
+                content_type="application/octet-stream"
+            )
 
             uploaded_files.append({
                 "filename": file.filename,
-                "minio_path": object_name
+                "minio_path": parquet_object_name
             })
 
             try:
+                row_count = lf.select(pl.len()).collect().item()
                 self.metadata_service.create_uploaded_file(
                     file_id=unique_id,
                     original_filename=file.filename,
-                    minio_path=object_name
+                    minio_path=parquet_object_name,
+                    row_count=row_count
                 )
             except Exception as e:
                 print(f"Metadata creation fails for {object_name}: {e}\n")
@@ -65,8 +79,8 @@ class UploadFileHandler:
             try:
                 self.grader_service.grade_file(
                     file_id=unique_id,
-                    file_to_be_graded=io.BytesIO(content),
-                    minio_path=object_name
+                    lf=lf,
+                    minio_path=parquet_object_name
                 )
             except Exception as e:
                 print(f"Grading fails for {object_name}: {e}\n")
