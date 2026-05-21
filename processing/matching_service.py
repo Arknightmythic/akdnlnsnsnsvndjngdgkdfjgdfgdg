@@ -1,18 +1,23 @@
 from io import BytesIO
-
+import duckdb
 import polars as pl
 from rapidfuzz.distance import JaroWinkler
 from sqlalchemy import text
 
-
 class MatchingService:
 
     def __init__(self, engine, minio_client, bucket_name):
+
         self.engine = engine
         self.minio_client = minio_client
         self.bucket_name = bucket_name
 
+    # =====================================================
+    # NORMALIZATION
+    # =====================================================
+
     def normalize_string(self, value):
+
         if value is None:
             return ""
 
@@ -21,6 +26,10 @@ class MatchingService:
             .strip()
             .lower()
         )
+
+    # =====================================================
+    # FILE METADATA
+    # =====================================================
 
     def get_uploaded_file(self, file_id):
 
@@ -35,12 +44,17 @@ class MatchingService:
         """)
 
         with self.engine.connect() as conn:
+
             result = conn.execute(
                 query,
                 {"file_id": file_id}
             ).mappings().first()
 
         return result
+
+    # =====================================================
+    # LOAD CSV FROM MINIO
+    # =====================================================
 
     def load_csv_from_minio(self, object_name):
 
@@ -51,45 +65,189 @@ class MatchingService:
 
         file_bytes = response.read()
 
-        df = pl.read_csv(BytesIO(file_bytes))
+        df = pl.read_csv(
+            BytesIO(file_bytes)
+        )
 
         df.columns = [
             c.strip().lower()
             for c in df.columns
         ]
 
+        # vectorized normalization
+        df = df.with_columns([
+            pl.col("nik")
+                .cast(pl.Utf8)
+                .str.strip_chars(),
+
+            pl.col("nama")
+                .cast(pl.Utf8)
+                .str.to_lowercase()
+                .str.strip_chars()
+                .alias("nama_clean")
+        ])
+
         return df
 
-    def fetch_master_by_nik(self,  conn, nik):
+    # =====================================================
+    # BULK FETCH MASTER DATA
+    # =====================================================
+
+    def fetch_master_dataset(self):
 
         query = text("""
             SELECT
                 nik,
                 nama_lengkap
             FROM master
-            WHERE nik = :nik
-            LIMIT 1
         """)
 
-        result = conn.execute(
-            query,
-            {"nik": nik}
-        ).mappings().first()
+        with self.engine.connect() as conn:
 
-        return result
+            rows = conn.execute(query).mappings().all()
 
-    def insert_result(
-        self,
-        conn,
-        nik_incoming,
-        nik_master,
-        file_id,
-        score,
-        match_result,
-        upload_date
-    ):
+        return (
+            pl.DataFrame(rows)
+            .with_columns([
+                pl.col("nik")
+                    .cast(pl.Utf8),
 
-        query = text("""
+                pl.col("nama_lengkap")
+                    .cast(pl.Utf8)
+                    .str.to_lowercase()
+                    .str.strip_chars()
+                    .alias("nama_master_clean")
+            ])
+        )
+
+    # =====================================================
+    # MAIN PROCESS
+    # =====================================================
+
+    def process_grade_a(self, file_id):
+
+        uploaded_file = self.get_uploaded_file(file_id)
+
+        if not uploaded_file:
+            raise Exception("File ID not found")
+
+        if uploaded_file["grade"] != "A":
+            raise Exception(
+                "This endpoint only processes Grade A files"
+            )
+
+        # =================================================
+        # LOAD INCOMING CSV
+        # =================================================
+
+        incoming_df = self.load_csv_from_minio(
+            uploaded_file["minio_path"]
+        )
+
+        print(f"Incoming rows: {incoming_df.height}")
+
+        # =================================================
+        # BULK LOAD MASTER DATA
+        # =================================================
+
+        master_df = self.fetch_master_dataset()
+
+        print(f"Master rows fetched: {master_df.height}")
+
+        # =================================================
+        # DUCKDB JOIN
+        # =================================================
+
+        con = duckdb.connect()
+
+        con.register(
+            "incoming_df",
+            incoming_df.to_arrow()
+        )
+
+        con.register(
+            "master_df",
+            master_df.to_arrow()
+        )
+
+        joined_df = con.execute("""
+            SELECT
+                i.nik,
+                i.nama,
+                i.nama_clean,
+
+                m.nik AS nik_master,
+                m.nama_lengkap,
+                m.nama_master_clean
+
+            FROM incoming_df i
+
+            LEFT JOIN master_df m
+                ON i.nik = m.nik
+        """).pl()
+
+        print(f"Joined rows: {joined_df.height}")
+
+        # =================================================
+        # MATCHING
+        # =================================================
+
+        results = []
+
+        for row in joined_df.iter_rows(named=True):
+
+            # =============================
+            # NO MATCH
+            # =============================
+
+            if row["nik_master"] is None:
+
+                results.append({
+                    "nik_incoming": row["nik"],
+                    "nik_master": None,
+                    "file_id": file_id,
+                    "match_score": 0,
+                    "match_result": "NO_NIK_MATCH",
+                    "upload_date":
+                        uploaded_file["upload_timestamp"]
+                })
+
+                continue
+
+            # =============================
+            # JARO WINKLER
+            # =============================
+
+            score = JaroWinkler.similarity(
+                row["nama_clean"],
+                row["nama_master_clean"]
+            )
+
+            score = round(score * 100, 2)
+
+            result = (
+                "MATCHED"
+                if score > 80
+                else "LOW_NAME_SIMILARITY"
+            )
+
+            results.append({
+                "nik_incoming": row["nik"],
+                "nik_master": row["nik_master"],
+                "file_id": file_id,
+                "match_score": score,
+                "match_result": result,
+                "upload_date":
+                    uploaded_file["upload_timestamp"]
+            })
+
+        print(f"Results prepared: {len(results)}")
+
+        # =================================================
+        # BATCH INSERT
+        # =================================================
+
+        insert_query = text("""
             INSERT INTO institution (
                 nik_incoming,
                 nik_master,
@@ -108,83 +266,25 @@ class MatchingService:
             )
         """)
 
-        conn.execute(query, {
-            "nik_incoming": nik_incoming,
-            "nik_master": nik_master,
-            "file_id": file_id,
-            "match_score": score,
-            "match_result": match_result,
-            "upload_date": upload_date
-        })
-
-    def process_grade_a(self, file_id):
-
-        uploaded_file = self.get_uploaded_file(file_id)
-
-        if not uploaded_file:
-            raise Exception("File ID not found")
-
-        if uploaded_file["grade"] != "A":
-            raise Exception("This endpoint only processes Grade A files")
-
-        df = self.load_csv_from_minio(
-            uploaded_file["minio_path"]
-        )
-
         with self.engine.begin() as conn:
 
-            for row in df.iter_rows(named=True):
+            conn.execute(
+                insert_query,
+                results
+            )
 
-                nik = str(row["nik"]).strip()
+        print("Batch insert completed")
 
-                print("Checking master table...")
-                existing_record = self.fetch_master_by_nik(
-                    conn=conn,
-                    nik=nik
-                )
-
-                if not existing_record:
-                    print("Nothing matched from master!")
-                    self.insert_result(
-                        nik_incoming=nik,
-                        nik_master=None,
-                        conn=conn,
-                        file_id=file_id,
-                        score=0,
-                        match_result="NO_NIK_MATCH",
-                        upload_date=uploaded_file["upload_timestamp"]
-                    )
-
-                    continue
-
-                print("Match found!")
-                incoming_name = self.normalize_string(
-                    row["nama"]
-                )
-
-                existing_name = self.normalize_string(
-                    existing_record["nama_lengkap"]
-                )
-
-                score = JaroWinkler.similarity(
-                    incoming_name,
-                    existing_name
-                )
-
-                score = round(score * 100, 2)
-
-                if score >= 85:
-                    result = "MATCHED"
-                else:
-                    result = "LOW_NAME_SIMILARITY"
-
-                print("Inserting institution...")
-                self.insert_result(
-                    nik_incoming=nik,
-                    nik_master=existing_record["nik"],
-                    conn=conn,
-                    file_id=file_id,
-                    score=score,
-                    match_result=result,
-                    upload_date=uploaded_file["upload_timestamp"]
-                )
+        return {
+            "processed_rows": len(results),
+            "matched_rows": sum(
+                1
+                for r in results
+                if r["match_result"] == "MATCHED"
+            ),
+            "unmatched_rows": sum(
+                1
+                for r in results
+                if r["match_result"] == "NO_NIK_MATCH"
+            )
+        }

@@ -60,7 +60,7 @@ class SynchronoAPI:
         self.app.include_router(match_routes.router, prefix="/match")
 
     def run(self):
-        uvicorn.run(self.app,port=9191)
+        uvicorn.run(self.app,host="0.0.0.0",port=9191)
 
 synchrono_api = SynchronoAPI()
 app = synchrono_api.app
