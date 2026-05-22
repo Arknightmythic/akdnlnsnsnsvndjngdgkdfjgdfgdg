@@ -20,13 +20,23 @@ class MatchFileHandler:
     async def process_file(self, file_id: str):
         print("Processing data...")
 
-        results = self.matching_service.process_grade_a(
-            file_id=file_id
+        uploaded_file = self.matching_service.get_uploaded_file(
+            file_id
         )
 
-        print("Processing complete!")
-        return {
-            "message": "Matching completed",
-            "file_id": file_id,
-            "results": results
-        }
+        if not uploaded_file:
+            raise Exception("File ID not found")
+
+        grade = uploaded_file["grade"]
+
+        if grade == "A":
+            return self.matching_service.process_grade_a(
+                file_id
+            )
+
+        if grade == "B":
+            return self.matching_service.process_grade_b(
+                file_id
+            )
+
+        raise Exception(f"Unsupported grade: {grade}")

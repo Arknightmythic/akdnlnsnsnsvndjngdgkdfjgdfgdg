@@ -1,31 +1,24 @@
-import jellyfish
+from rapidfuzz.distance import JaroWinkler
 
-def jaro_score(a, b):
-    if a is None or b is None:
-        return 0.0
-    return float(jellyfish.jaro_winkler_similarity(str(a), str(b)))
+class ScoringService:
 
-def compute_similarity_matched(b_nama, a_nama, b_tempat_lahir, a_tempat_lahir, b_nama_ibu, a_nama_ibu):
+    def __init__(self):
+        print("Scoring Service Initiated!")
 
-    return (
-        jaro_score(b_nama, a_nama) * 0.8 +
-        jaro_score(b_tempat_lahir, a_tempat_lahir) * 0.1 +
-        jaro_score(b_nama_ibu, a_nama_ibu) * 0.1
-    )
+    def safe_jaro(self, left, right):
+        if not left or not right:
+            return 0
 
-def compute_similarity_unmatched(b_nama, a_nama, b_tempat_lahir, a_tempat_lahir, b_nama_ibu, a_nama_ibu):
+        return JaroWinkler.similarity(left, right)
 
-    return (
-        jaro_score(b_nama, a_nama) * 0.8 +
-        jaro_score(b_tempat_lahir, a_tempat_lahir) * 0.1 +
-        jaro_score(b_nama_ibu, a_nama_ibu) * 0.1
-    )
-
-def compute_similarity_data_d(b_nama, a_nama, b_tempat_lahir, a_tempat_lahir, b_tanggal_lahir, a_tanggal_lahir, b_nama_ibu, a_nama_ibu):
+    def compute_similarity_matched_grade_B(self, 
+        b_nama, a_nama,
+        b_tempat_lahir, a_tempat_lahir,
+        b_nama_ibu, a_nama_ibu
+        ):
 
         return (
-            jaro_score(b_nama, a_nama) * 0.60 +
-            jaro_score(b_tempat_lahir, a_tempat_lahir) * 0.05 +
-            jaro_score(b_tanggal_lahir, a_tanggal_lahir) * 0.30 +
-            jaro_score(b_nama_ibu, a_nama_ibu) * 0.05
-        )
+            self.safe_jaro(b_nama, a_nama) * 0.8 +
+            self.safe_jaro(b_tempat_lahir, a_tempat_lahir) * 0.1 +
+            self.safe_jaro(b_nama_ibu, a_nama_ibu) * 0.1
+        ) * 100
