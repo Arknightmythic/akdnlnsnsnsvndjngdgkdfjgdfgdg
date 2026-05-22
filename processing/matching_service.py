@@ -1,5 +1,7 @@
+import time
 from io import BytesIO
 import duckdb
+import tempfile
 import polars as pl
 from rapidfuzz.distance import JaroWinkler
 from sqlalchemy import text
@@ -7,14 +9,10 @@ from sqlalchemy import text
 class MatchingService:
 
     def __init__(self, engine, minio_client, bucket_name):
-
+        self.BATCH_SIZE = 1000
         self.engine = engine
         self.minio_client = minio_client
         self.bucket_name = bucket_name
-
-    # =====================================================
-    # NORMALIZATION
-    # =====================================================
 
     def normalize_string(self, value):
 
@@ -26,10 +24,6 @@ class MatchingService:
             .strip()
             .lower()
         )
-
-    # =====================================================
-    # FILE METADATA
-    # =====================================================
 
     def get_uploaded_file(self, file_id):
 
@@ -51,10 +45,6 @@ class MatchingService:
             ).mappings().first()
 
         return result
-
-    # =====================================================
-    # LOAD CSV FROM MINIO
-    # =====================================================
 
     def load_csv_from_minio(self, object_name):
 
@@ -88,10 +78,40 @@ class MatchingService:
         ])
 
         return df
+    
+    def load_parquet_from_minio(self, object_name):
 
-    # =====================================================
-    # BULK FETCH MASTER DATA
-    # =====================================================
+        response = self.minio_client.get_object(
+            self.bucket_name,
+            object_name
+        )
+
+        with tempfile.NamedTemporaryFile(suffix=".parquet") as tmp:
+            for chunk in response.stream(32 * 1024):
+                tmp.write(chunk)
+
+            tmp.flush()
+
+            df = pl.read_parquet(tmp.name)
+
+        df.columns = [
+            c.strip().lower()
+            for c in df.columns
+        ]
+
+        df = df.with_columns([
+            pl.col("nik")
+                .cast(pl.Utf8)
+                .str.strip_chars(),
+
+            pl.col("nama")
+                .cast(pl.Utf8)
+                .str.to_lowercase()
+                .str.strip_chars()
+                .alias("nama_clean")
+        ])
+
+        return df
 
     def fetch_master_dataset(self):
 
@@ -120,10 +140,6 @@ class MatchingService:
             ])
         )
 
-    # =====================================================
-    # MAIN PROCESS
-    # =====================================================
-
     def process_grade_a(self, file_id):
 
         uploaded_file = self.get_uploaded_file(file_id)
@@ -136,28 +152,15 @@ class MatchingService:
                 "This endpoint only processes Grade A files"
             )
 
-        # =================================================
-        # LOAD INCOMING CSV
-        # =================================================
-
-        incoming_df = self.load_csv_from_minio(
+        incoming_df = self.load_parquet_from_minio(
             uploaded_file["minio_path"]
         )
-
         print(f"Incoming rows: {incoming_df.height}")
 
-        # =================================================
-        # BULK LOAD MASTER DATA
-        # =================================================
-
         master_df = self.fetch_master_dataset()
-
         print(f"Master rows fetched: {master_df.height}")
 
-        # =================================================
-        # DUCKDB JOIN
-        # =================================================
-
+        start = time.perf_counter()
         con = duckdb.connect()
 
         con.register(
@@ -188,18 +191,9 @@ class MatchingService:
 
         print(f"Joined rows: {joined_df.height}")
 
-        # =================================================
-        # MATCHING
-        # =================================================
-
         results = []
 
         for row in joined_df.iter_rows(named=True):
-
-            # =============================
-            # NO MATCH
-            # =============================
-
             if row["nik_master"] is None:
 
                 results.append({
@@ -213,10 +207,6 @@ class MatchingService:
                 })
 
                 continue
-
-            # =============================
-            # JARO WINKLER
-            # =============================
 
             score = JaroWinkler.similarity(
                 row["nama_clean"],
@@ -240,12 +230,8 @@ class MatchingService:
                 "upload_date":
                     uploaded_file["upload_timestamp"]
             })
-
+        matching_time_ms = round((time.perf_counter() - start) * 1000, 2)
         print(f"Results prepared: {len(results)}")
-
-        # =================================================
-        # BATCH INSERT
-        # =================================================
 
         insert_query = text("""
             INSERT INTO institution (
@@ -266,11 +252,31 @@ class MatchingService:
             )
         """)
 
+        matched_time_query = text("""
+            UPDATE uploaded_files
+            SET matching_time_ms = :matching_time_ms
+            WHERE file_id = :file_id
+        """)
+        
         with self.engine.begin() as conn:
 
+            for i in range(0, len(results), self.BATCH_SIZE):
+
+                batch = results[i:i + self.BATCH_SIZE]
+
+                conn.execute(
+                    insert_query,
+                    batch
+                )
+
+                print(f"Inserted {i + len(batch)} rows")
+
             conn.execute(
-                insert_query,
-                results
+                matched_time_query,
+                {
+                    "matching_time_ms": matching_time_ms,
+                    "file_id": file_id
+                }
             )
 
         print("Batch insert completed")

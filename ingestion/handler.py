@@ -17,6 +17,7 @@ class UploadFileHandler:
         self.client = minio_client
         self.bucket_name = bucket_name
         self.metadata_service = MetadataService(starrocks_engine)
+        self.grader_service = GraderService(starrocks_engine)
         print("Upload Handler Initialized")
 
     async def upload_file(self, files: List[UploadFile] = File(...)):
@@ -48,7 +49,7 @@ class UploadFileHandler:
             parquet_buffer.seek(0)
 
             parquet_object_name = (
-                f"{os.getenv("CURATED_FOLDER_PATH")}/"
+                f"{os.getenv("CURATED_BUCKET_NAME")}/"
                 f"{timestamp}_{unique_id}_{file.filename.replace('.csv', '.parquet')}"
             )
 
