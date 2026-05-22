@@ -18,9 +18,10 @@ class UploadFileHandler:
         self.bucket_name = bucket_name
         self.metadata_service = MetadataService(starrocks_engine)
         self.grader_service = GraderService(starrocks_engine)
-        print("Handler Initialized")
+        print("Upload Handler Initialized")
 
     async def upload_file(self, files: List[UploadFile] = File(...)):
+        print("Uploading Files...")
         uploaded_files = []
 
         for file in files:
@@ -38,6 +39,7 @@ class UploadFileHandler:
                 f"{timestamp}_{unique_id}_{file.filename}"
             )
 
+            print("putting object...")
             content = await file.read()
 
             lf = pl.scan_csv(io.BytesIO(content))
@@ -47,7 +49,7 @@ class UploadFileHandler:
             parquet_buffer.seek(0)
 
             parquet_object_name = (
-                f"{os.getenv("CURATED_FOLDER_PATH")}/"
+                f"{os.getenv("CURATED_BUCKET_NAME")}/"
                 f"{timestamp}_{unique_id}_{file.filename.replace('.csv', '.parquet')}"
             )
 
@@ -57,8 +59,10 @@ class UploadFileHandler:
                 data=parquet_buffer,
                 length=parquet_buffer.getbuffer().nbytes,
                 part_size=10 * 1024 * 1024,
-                content_type="application/octet-stream"
+                content_type="text/csv"
             )
+
+            print("putting metadata...")
 
             uploaded_files.append({
                 "filename": file.filename,
@@ -86,6 +90,7 @@ class UploadFileHandler:
             except Exception as e:
                 print(f"Grading fails for {object_name}: {e}\n")
 
+        print("Files uploaded!")
         return {
             "message": "Files uploaded successfully",
             "uploaded_files": uploaded_files
