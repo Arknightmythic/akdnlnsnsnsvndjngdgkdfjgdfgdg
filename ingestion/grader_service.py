@@ -17,22 +17,29 @@ class GraderService:
             total_rows = lf.select(pl.len()).collect().item()
 
             # Build expressions for existing target columns only
-            expressions = []
+            expressions = [pl.len().alias("total_rows")]
             for col in sorted(lf_columns_set & target_columns):
                 nonnull_expr = (
-                    (pl.lit(total_rows) - pl.col(col).null_count()) / pl.lit(total_rows)
+                    (pl.len() - pl.col(col).null_count()) / pl.len()
                 ).alias(f"{col}_nonnull")
                 expressions.append(nonnull_expr)
 
                 if col == "nik":
                     len16_expr = (
-                        (pl.col(col).cast(pl.String).str.len_chars() == 16).sum() / pl.lit(total_rows)
+                        (pl.col(col).cast(pl.String).str.len_chars() == 16).sum()
+                        / pl.len()
                     ).alias("nik_len16")
                     expressions.append(len16_expr)
 
-            if total_rows > 0 and expressions:
-                result_df = lf.select(expressions).collect()
-                pcts = {col_name: result_df[col_name][0] for col_name in result_df.columns}
+            if expressions:
+                result_df = lf.select(expressions).collect(streaming=True)
+                total_rows = result_df["total_rows"][0]
+                
+                if total_rows > 0:
+                    result_df = lf.select(expressions).collect()
+                    pcts = {col_name: result_df[col_name][0] for col_name in result_df.columns}
+                else:
+                    pcts = {}
             else:
                 pcts = {}
 
