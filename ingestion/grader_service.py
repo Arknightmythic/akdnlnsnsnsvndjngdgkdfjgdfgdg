@@ -40,9 +40,7 @@ class GraderService:
             if expressions:
                 result_df = lf.select(expressions).collect(streaming=True)
                 total_rows = result_df["total_rows"][0]
-                
                 if total_rows > 0:
-                    result_df = lf.select(expressions).collect()
                     pcts = {col_name: result_df[col_name][0] for col_name in result_df.columns}
                 else:
                     pcts = {}
