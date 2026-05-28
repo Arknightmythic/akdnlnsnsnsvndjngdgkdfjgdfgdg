@@ -12,10 +12,12 @@ def grade_lazyframe(lf: pl.LazyFrame) -> str:
     Computes column existence, non-null percentages, NIK length checks,
     and assigns a grade (A-E). DB write operations are stripped out.
     """
+    target_columns = {"nik", "nama", "tempat_lahir", "tanggal_lahir", "jenis_kelamin", "nama_ibu"}
     lf_columns_set = set(lf.columns)
 
+    # Build expressions for existing target columns only
     expressions = [pl.len().alias("total_rows")]
-    for col in sorted(lf_columns_set & TARGET_COLUMNS):
+    for col in sorted(lf_columns_set & target_columns):
         nonnull_expr = (
             (pl.len() - pl.col(col).null_count()) / pl.len()
         ).alias(f"{col}_nonnull")
@@ -39,9 +41,7 @@ def grade_lazyframe(lf: pl.LazyFrame) -> str:
     if expressions:
         result_df = lf.select(expressions).collect(streaming=True)
         total_rows = result_df["total_rows"][0]
-        
         if total_rows > 0:
-            result_df = lf.select(expressions).collect()
             pcts = {col_name: result_df[col_name][0] for col_name in result_df.columns}
         else:
             pcts = {}
@@ -50,7 +50,7 @@ def grade_lazyframe(lf: pl.LazyFrame) -> str:
 
     # Build results dict with defaults for missing columns
     results: dict = {}
-    for col in TARGET_COLUMNS:
+    for col in target_columns:
         exists = col in lf_columns_set
         results[f"{col}_exists"] = exists
         results[f"{col}_nonnull"] = pcts.get(f"{col}_nonnull", 0.0)
@@ -69,7 +69,7 @@ def grade_lazyframe(lf: pl.LazyFrame) -> str:
     # Grade A & B: all 6 columns must exist
     if all_6_exist:
         all_100_nonnull = all(
-            results[f"{c}_null_count"] == 0 for c in TARGET_COLUMNS
+            results[f"{c}_null_count"] == 0 for c in target_columns
         )
         len16_100 = results["nik_not_len16_count"] == 0
         if all_100_nonnull and len16_100:
