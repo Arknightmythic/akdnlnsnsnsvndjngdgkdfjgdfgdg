@@ -3,7 +3,7 @@ import io
 import os
 
 from typing import List
-from datetime import datetime
+from datetime import datetime, UTC
 from dotenv import load_dotenv
 from fastapi import UploadFile, File, HTTPException
 import polars as pl
@@ -31,7 +31,7 @@ class UploadFileHandler:
                     detail=f"{file.filename} is not a CSV file"
                 )
 
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             unique_id = uuid.uuid4().hex[:8]
 
             object_name = (
