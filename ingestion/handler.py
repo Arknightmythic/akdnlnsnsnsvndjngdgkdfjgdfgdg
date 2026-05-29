@@ -44,6 +44,9 @@ class UploadFileHandler:
 
             lf = pl.scan_csv(io.BytesIO(content))
 
+            # Add column id
+            lf = lf.with_row_index(name="id", offset=1)
+
             parquet_buffer = io.BytesIO()
             lf.sink_parquet(parquet_buffer)
             parquet_buffer.seek(0)
