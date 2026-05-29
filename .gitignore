@@ -1,6 +1,7 @@
 .vscode
 data/
 .DS_Store
+compare/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
