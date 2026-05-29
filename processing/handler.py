@@ -48,5 +48,10 @@ class MatchFileHandler:
             return self.matching_service.process_grade_d(
                 file_id
             )
+        
+        if grade == "E":
+            return self.matching_service.process_grade_e(
+                file_id
+            )
 
         raise Exception(f"Unsupported grade: {grade}")
