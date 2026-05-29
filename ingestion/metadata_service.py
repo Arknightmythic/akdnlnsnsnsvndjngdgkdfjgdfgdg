@@ -10,6 +10,7 @@ class MetadataService:
     def create_uploaded_file(
         self,
         file_id,
+        institution_name,
         original_filename,
         minio_path,
         row_count
@@ -19,6 +20,7 @@ class MetadataService:
             INSERT INTO uploaded_files (
                 file_id,
                 original_filename,
+                institution_name,
                 minio_path,
                 upload_timestamp,
                 processing_status,
@@ -27,6 +29,7 @@ class MetadataService:
             VALUES (
                 :file_id,
                 :original_filename,
+                :institution_name,
                 :minio_path,
                 :upload_timestamp,
                 :processing_status,
@@ -40,6 +43,7 @@ class MetadataService:
                 {
                     "file_id": file_id,
                     "original_filename": original_filename,
+                    "institution_name": institution_name,
                     "minio_path": minio_path,
                     "upload_timestamp": datetime.utcnow(),
                     "processing_status": "UPLOADED",

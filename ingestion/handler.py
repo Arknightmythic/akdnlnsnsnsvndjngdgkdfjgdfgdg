@@ -20,7 +20,7 @@ class UploadFileHandler:
         self.grader_service = GraderService(starrocks_engine)
         print("Upload Handler Initialized")
 
-    async def upload_file(self, files: List[UploadFile] = File(...)):
+    async def upload_file(self, institution_name: str, files: List[UploadFile] = File(...)):
         print("Uploading Files...")
         uploaded_files = []
 
@@ -73,6 +73,7 @@ class UploadFileHandler:
                 row_count = lf.select(pl.len()).collect().item()
                 self.metadata_service.create_uploaded_file(
                     file_id=unique_id,
+                    institution_name=institution_name,
                     original_filename=file.filename,
                     minio_path=parquet_object_name,
                     row_count=row_count
