@@ -885,9 +885,6 @@ class MatchingService:
         incoming_df = self.load_parquet_from_minio(
             uploaded_file["minio_path"]
         )
-        incoming_df = incoming_df.with_row_index(
-            name="incoming_row_id"
-        )
         print(f"Incoming rows: {incoming_df.height}")
 
         master_df = self.fetch_master_dataset()
@@ -901,7 +898,7 @@ class MatchingService:
         candidate_query = """
             WITH missing_gender AS (
                 SELECT
-                    i.incoming_row_id,
+                    i.id AS incoming_row_id,
                     i.nama_clean,
                     i.tempat_lahir_clean,
                     i.tanggal_lahir_clean,
@@ -940,7 +937,7 @@ class MatchingService:
             ),
             missing_tempat AS (
                 SELECT
-                    i.incoming_row_id,
+                    i.id AS incoming_row_id,
                     i.nama_clean,
                     i.tempat_lahir_clean,
                     i.tanggal_lahir_clean,
@@ -981,7 +978,7 @@ class MatchingService:
             ),
             missing_tanggal AS (
                 SELECT
-                    i.incoming_row_id,
+                    i.id AS incoming_row_id,
                     i.nama_clean,
                     i.tempat_lahir_clean,
                     i.tanggal_lahir_clean,
@@ -1015,7 +1012,7 @@ class MatchingService:
             ),
             complete_data AS (
                 SELECT
-                    i.incoming_row_id,
+                    i.id AS incoming_row_id,
                     i.nama_clean,
                     i.tempat_lahir_clean,
                     i.tanggal_lahir_clean,
@@ -1066,6 +1063,21 @@ class MatchingService:
 
         print(f"Candidate rows: {candidate_df.height}")
         results_map = {}
+
+        all_incoming_ids = (
+            incoming_df
+            .select("id")
+            .to_series()
+            .to_list()
+        )
+
+        for incoming_id in all_incoming_ids:
+            if incoming_id not in results_map:
+                results_map[incoming_id] = {
+                    "score": 0,
+                    "result": "AUTO_UNMATCH",
+                    "nik_master": None
+                }
 
         for row in candidate_df.iter_rows(named=True):
             incoming_row_id = row["incoming_row_id"]
@@ -1155,7 +1167,7 @@ class MatchingService:
 
         for incoming_row_id, best_match in (results_map.items()):
             results.append({
-                "nik_incoming": None,
+                "nik_incoming": incoming_row_id,
                 "nik_master": best_match["nik_master"],
                 "file_id": file_id,
                 "match_score": round(best_match["score"] * 100, 2),
@@ -1251,7 +1263,6 @@ class MatchingService:
             raise Exception("This endpoint only processes Grade E files")
 
         incoming_df = self.load_parquet_from_minio(uploaded_file["minio_path"])
-        incoming_df = incoming_df.with_row_index(name="incoming_row_id")
         print(f"Incoming rows: {incoming_df.height}")
 
         master_df = self.fetch_master_dataset()
@@ -1265,7 +1276,7 @@ class MatchingService:
         candidate_query = """
             WITH candidates AS (
                 SELECT
-                    i.incoming_row_id,
+                    i.id AS incoming_row_id,
                     i.nama_clean,
                     i.tanggal_lahir_clean,
                     i.provinsi_clean,
@@ -1453,7 +1464,7 @@ class MatchingService:
                     "nik_master": row["nik_master"]
                 }
 
-        all_incoming_ids = set(incoming_df["incoming_row_id"].to_list())
+        all_incoming_ids = set(incoming_df["id"].to_list())
         matched_incoming_ids = set(results_map.keys())
         missing_incoming_ids = (all_incoming_ids - matched_incoming_ids)
         print(f"Rows without candidates: "f"{len(missing_incoming_ids)}")
@@ -1468,7 +1479,7 @@ class MatchingService:
         results = []
         for incoming_row_id, best_match in (results_map.items()):
             results.append({
-                "nik_incoming": None,
+                "nik_incoming": incoming_row_id,
                 "nik_master": best_match["nik_master"],
                 "file_id": file_id,
                 "match_score":
