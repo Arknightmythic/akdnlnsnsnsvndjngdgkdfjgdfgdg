@@ -226,3 +226,6 @@ _marimo_/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+.venv/
