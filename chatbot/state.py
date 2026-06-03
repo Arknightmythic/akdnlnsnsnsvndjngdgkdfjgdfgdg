@@ -1,0 +1,10 @@
+from typing import TypedDict
+
+class SQLState(TypedDict):
+    question: str
+    schema: str
+    query: str
+    error_messages: str
+    is_dangerous: bool
+    result: str
+    answer: str
