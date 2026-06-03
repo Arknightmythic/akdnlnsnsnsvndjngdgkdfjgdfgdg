@@ -224,8 +224,10 @@ marimo/_lsp/
 __marimo__/
 _marimo_/
 
-# Streamlit
-.streamlit/secrets.tomluv.lock
 
 *.db
 *.pdf
+.streamlit/secrets.toml
+
+
+.venv/
