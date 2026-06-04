@@ -3,394 +3,41 @@ from io import BytesIO
 import duckdb
 import tempfile
 import polars as pl
-from rapidfuzz.distance import JaroWinkler
 from sqlalchemy import text
+
 from .string_similarity import ScoringService
+from .minio_fetching_service import ObjectStorageService
+from .repository import StarrocksService
 
 class MatchingService:
     def __init__(self, engine, minio_client, bucket_name):
-        self.BATCH_SIZE = 10000
-        self.engine = engine
-        self.minio_client = minio_client
-        self.bucket_name = bucket_name
         self.scoring_service = ScoringService()
+        self.object_storage_service = ObjectStorageService(minio_client, bucket_name)
+        self.starrocks_service = StarrocksService(engine)
 
-    def normalize_string(self, value):
-        if value is None:
-            return ""
-
-        return (str(value).strip().lower())
-
-    def get_uploaded_file(self, file_id):
-        query = text("""
-            SELECT
-                file_id,
-                minio_path,
-                upload_timestamp,
-                grade
-            FROM uploaded_files
-            WHERE file_id = :file_id
-        """)
-
-        with self.engine.connect() as conn:
-            result = conn.execute(query,{"file_id": file_id}).mappings().first()
-
-        return result
-
-    def load_csv_from_minio(self, object_name):
-        response = self.minio_client.get_object(
-            self.bucket_name,
-            object_name
-        )
-
-        file_bytes = response.read()
-        df = pl.read_csv(BytesIO(file_bytes))
-        df.columns = [c.strip().lower() for c in df.columns]
-
-        df = df.with_columns([
-            pl.col("nik")
-                .cast(pl.Utf8)
-                .str.strip_chars(),
-            pl.col("nama")
-                .cast(pl.Utf8)
-                .str.to_lowercase()
-                .str.strip_chars()
-                .alias("nama_clean")
-        ])
-
-        return df
-    
-    def load_parquet_from_minio(self, object_name):
-        response = self.minio_client.get_object(
-            self.bucket_name,
-            object_name
-        )
-
-        with tempfile.NamedTemporaryFile(suffix=".parquet") as tmp:
-            for chunk in response.stream(32 * 1024):
-                tmp.write(chunk)
-            tmp.flush()
-            df = pl.read_parquet(tmp.name)
-
-        df.columns = [c.strip().lower()for c in df.columns]
-
-        expressions = []
-        if "id" in df.columns:
-            expressions.append(
-                pl.col("id")
-                    .cast(pl.Utf8)
-                    .str.strip_chars()
-            )
-
-        if "nik" in df.columns:
-            expressions.append(
-                pl.col("nik")
-                    .cast(pl.Utf8)
-                    .str.strip_chars()
-            )
-
-        if "nama" in df.columns:
-            expressions.append(
-                pl.col("nama")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("nama_clean")
-            )
-
-        if "tempat_lahir" in df.columns:
-            expressions.append(
-                pl.col("tempat_lahir")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("tempat_lahir_clean")
-            )
-
-        if "provinsi" in df.columns:
-            expressions.append(
-                pl.col("provinsi")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("provinsi_clean")
-            )
-
-        if "kabupaten" in df.columns:
-            expressions.append(
-                pl.col("kabupaten")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("kabupaten_clean")
-            )
-
-        if "kecamatan" in df.columns:
-            expressions.append(
-                pl.col("kecamatan")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("kecamatan_clean")
-            )
-
-        if "kelurahan" in df.columns:
-            expressions.append(
-                pl.col("kelurahan")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("kelurahan_clean")
-            )
-
-        if "tanggal_lahir" in df.columns:
-            raw_tanggal = (
-                pl.col("tanggal_lahir")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-            )
-
-            expressions.append(
-
-                pl.coalesce([
-                    raw_tanggal.str.strptime(
-                        pl.Date,
-                        format="%d/%m/%Y",
-                        strict=False
-                    ),
-                    raw_tanggal.str.strptime(
-                        pl.Date,
-                        format="%d-%m-%Y",
-                        strict=False
-                    ),
-                    raw_tanggal.str.strptime(
-                        pl.Date,
-                        format="%d %m %Y",
-                        strict=False
-                    ),
-                    raw_tanggal.str.strptime(
-                        pl.Date,
-                        format="%d-%b-%Y",
-                        strict=False
-                    ),
-                    raw_tanggal.str.strptime(
-                        pl.Date,
-                        format="%d %B %Y",
-                        strict=False
-                    ),
-                    raw_tanggal.str.strptime(
-                        pl.Date,
-                        format="%Y-%m-%d",
-                        strict=False
-                    )
-
-                ])
-                .alias("tanggal_lahir_clean")
-            )
-
-        if "jenis_kelamin" in df.columns:
-            expressions.append(
-                pl.when(
-                    pl.col("jenis_kelamin")
-                        .cast(pl.Utf8)
-                        .str.to_lowercase()
-                        .str.strip_chars()
-                        .is_in([
-                            "laki-laki",
-                            "laki laki",
-                            "pria",
-                            "male",
-                            "l"
-                        ])
-                )
-                .then(pl.lit("l"))
-
-                .when(
-                    pl.col("jenis_kelamin")
-                        .cast(pl.Utf8)
-                        .str.to_lowercase()
-                        .str.strip_chars()
-                        .is_in([
-                            "perempuan",
-                            "wanita",
-                            "female",
-                            "p"
-                        ])
-                )
-                .then(pl.lit("p"))
-                .otherwise(None)
-                .alias("jenis_kelamin_clean")
-            )
-
-        if "status_hidup" in df.columns:
-            expressions.append(
-                pl.when(
-                    pl.col("status_hidup")
-                        .cast(pl.Utf8)
-                        .str.to_lowercase()
-                        .str.strip_chars()
-                        .is_in([
-                            "hidup",
-                            "h"
-                        ])
-                )
-                .then(pl.lit("h"))
-                .when(
-                    pl.col("status_hidup")
-                        .cast(pl.Utf8)
-                        .str.to_lowercase()
-                        .str.strip_chars()
-                        .is_in([
-                            "meninggal",
-                            "mati",
-                            "wafat",
-                            "m"
-                        ])
-                )
-                .then(pl.lit("m"))
-                .otherwise(None)
-                .alias("status_hidup_clean")
-            )
-
-        if "nama_ibu" in df.columns:
-            expressions.append(
-                pl.col("nama_ibu")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("nama_ibu_clean")
-            )
-
-        df = df.with_columns(expressions)
-        df = df.with_columns(
-            pl.when(
-                pl.col("tanggal_lahir_clean")
-                    .dt.year()
-                    < 1900
-            )
-            .then(None)
-            .otherwise(
-                pl.col("tanggal_lahir_clean")
-            )
-            .alias("tanggal_lahir_clean")
-        )
-
-        return df
-
-    def fetch_master_dataset(self):
-
-        query = text("""
-            SELECT nik,nama_lengkap,tempat_lahir,provinsi,kabupaten,kecamatan,
-            kelurahan,tanggal_lahir,jenis_kelamin,nama_ibu,status_kematian
-            FROM master
-        """)
-
-        with self.engine.connect() as conn:
-            rows = conn.execute(query).mappings().all()
-
-        return (
-            pl.DataFrame(rows)
-            .with_columns([
-                pl.col("nik")
-                    .cast(pl.Utf8),
-                pl.col("nama_lengkap")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("nama_master_clean"),
-                pl.col("tempat_lahir")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("tempat_lahir_master_clean"),
-                pl.col("provinsi")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("provinsi_master_clean"),
-                pl.col("kabupaten")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("kabupaten_master_clean"),
-                pl.col("kecamatan")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("kecamatan_master_clean"),
-                pl.col("kelurahan")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("kelurahan_master_clean"),
-                pl.col("tanggal_lahir")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .str.strptime(
-                        pl.Date,
-                        format="%Y-%m-%d",
-                        strict=False
-                    )
-                    .alias("tanggal_lahir_master_clean"),
-                pl.col("jenis_kelamin")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("jenis_kelamin_master_clean"),
-                pl.col("nama_ibu")
-                    .cast(pl.Utf8)
-                    .str.to_lowercase()
-                    .str.strip_chars()
-                    .alias("nama_ibu_master_clean"),
-                pl.when(
-                    pl.col("status_kematian")
-                        .cast(pl.Utf8)
-                        .str.to_lowercase()
-                        .str.strip_chars()
-                        .is_in([
-                            "hidup",
-                            "h"
-                        ])
-                )
-                .then(pl.lit("h"))
-                .when(
-                    pl.col("status_kematian")
-                        .cast(pl.Utf8)
-                        .str.to_lowercase()
-                        .str.strip_chars()
-                        .is_in([
-                            "meninggal",
-                            "mati",
-                            "wafat",
-                            "m"
-                        ])
-                )
-                .then(pl.lit("m"))
-                .otherwise(None)
-                .alias("status_hidup_master_clean")
-            ])
-        )
-
-    def process_grade_a(self, file_id):
-        uploaded_file = self.get_uploaded_file(file_id)
+    def get_matching_data(self, file_id, grade):
+        uploaded_file = self.starrocks_service.get_uploaded_file(file_id)
 
         if not uploaded_file:
             raise Exception("File ID not found")
 
-        if uploaded_file["grade"] != "A":
+        if uploaded_file["grade"] != grade:
             raise Exception(
-                "This endpoint only processes Grade A files"
+                f"This endpoint only processes Grade {grade} files"
             )
 
-        incoming_df = self.load_parquet_from_minio(
+        incoming_df = self.object_storage_service.load_parquet_from_minio(
             uploaded_file["minio_path"]
         )
         print(f"Incoming rows: {incoming_df.height}")
 
-        master_df = self.fetch_master_dataset()
+        master_df = self.starrocks_service.fetch_master_dataset()
         print(f"Master rows fetched: {master_df.height}")
+
+        return uploaded_file, incoming_df, master_df
+
+    def process_grade_a(self, file_id):
+        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, "A")
 
         start = time.perf_counter()
         con = duckdb.connect()
@@ -486,20 +133,7 @@ class MatchingService:
             WHERE file_id = :file_id
         """)
         
-        with self.engine.begin() as conn:
-            conn.execute(
-                insert_query,
-                results
-            )
-
-            conn.execute(
-                matched_time_query,
-                {
-                    "matching_time_ms": matching_time_ms,
-                    "file_id": file_id
-                }
-            )
-
+        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id)
         print("Batch insert completed")
 
         return {
@@ -541,22 +175,9 @@ class MatchingService:
         return "AUTO_UNMATCH"
 
     def process_grade_b(self, file_id):
-        uploaded_file = self.get_uploaded_file(file_id)
+        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, "B")
 
-        if not uploaded_file:
-            raise Exception("File ID not found")
-
-        if uploaded_file["grade"] != "B":
-            raise Exception(
-                "This endpoint only processes Grade B files"
-            )
-
-        incoming_df = self.load_parquet_from_minio(uploaded_file["minio_path"])
-        print(f"Incoming rows: {incoming_df.height}")
-
-        master_df = self.fetch_master_dataset()
-        print(f"Master rows fetched: {master_df.height}")
-
+        self.starrocks_service.set_sync_status_in_progress(file_id)
         start = time.perf_counter()
         con = duckdb.connect()
         con.register("incoming_df",incoming_df.to_arrow())
@@ -587,6 +208,7 @@ class MatchingService:
         print(f"Joined rows: {joined_df.height}")
 
         results = []
+        sync_status = "Completed"
         for row in joined_df.iter_rows(named=True):
             if row["nik_master"] is None:
                 results.append({
@@ -615,6 +237,8 @@ class MatchingService:
             )
 
             result = self.classify_grade_b_result(score, missing_count)
+            if result == "MANUAL_REVIEW":
+                sync_status = "Awaiting Action"
 
             results.append({
                 "nik_incoming": row["nik"],
@@ -656,17 +280,7 @@ class MatchingService:
             WHERE file_id = :file_id
         """)
 
-        with self.engine.begin() as conn:
-            conn.execute(insert_query,results)
-
-            conn.execute(
-                matched_time_query,
-                {
-                    "matching_time_ms": matching_time_ms,
-                    "file_id": file_id
-                }
-            )
-
+        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
         print("Batch insert completed")
 
         return {
@@ -691,20 +305,9 @@ class MatchingService:
         }
     
     def process_grade_c(self, file_id):
-        uploaded_file = self.get_uploaded_file(file_id)
+        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, "C")
 
-        if not uploaded_file:
-            raise Exception("File ID not found")
-        if uploaded_file["grade"] != "C":
-            raise Exception(
-                "This endpoint only processes Grade C files"
-            )
-        incoming_df = self.load_parquet_from_minio(uploaded_file["minio_path"])
-        print(f"Incoming rows: {incoming_df.height}")
-
-        master_df = self.fetch_master_dataset()
-        print(f"Master rows fetched: {master_df.height}")
-
+        self.starrocks_service.set_sync_status_in_progress(file_id)
         start = time.perf_counter()
         con = duckdb.connect()
 
@@ -749,7 +352,7 @@ class MatchingService:
         print(f"Candidate rows: {candidate_df.height}")
 
         results_map = {}
-
+        sync_status = "Completed"
         for row in candidate_df.iter_rows(named=True):
             nik_incoming = row["nik_incoming"]
             if row["nik_master"] is None:
@@ -789,6 +392,7 @@ class MatchingService:
                     result = "AUTO_MATCH"
                 elif final_score >= 0.85:
                     result = "MANUAL_REVIEW"
+                    sync_status = "Awaiting Action"
                 else:
                     result = "AUTO_UNMATCH"
                 results_map[nik_incoming] = {
@@ -837,20 +441,9 @@ class MatchingService:
             WHERE file_id = :file_id
         """)
 
-        with self.engine.begin() as conn:
-            conn.execute(
-                insert_query,
-                results
-            )
-            conn.execute(
-                matched_time_query,
-                {
-                    "matching_time_ms": matching_time_ms,
-                    "file_id": file_id
-                }
-            )
-
+        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
         print("Batch insert completed")
+
         return {
             "message": "Grade C matching completed",
             "file_id": file_id,
@@ -873,23 +466,9 @@ class MatchingService:
         }
     
     def process_grade_d(self, file_id):
-        uploaded_file = self.get_uploaded_file(file_id)
+        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, "D")
 
-        if not uploaded_file:
-            raise Exception("File ID not found")
-        if uploaded_file["grade"] != "D":
-            raise Exception(
-                "This endpoint only processes Grade D files"
-            )
-
-        incoming_df = self.load_parquet_from_minio(
-            uploaded_file["minio_path"]
-        )
-        print(f"Incoming rows: {incoming_df.height}")
-
-        master_df = self.fetch_master_dataset()
-        print(f"Master rows fetched: {master_df.height}")
-
+        self.starrocks_service.set_sync_status_in_progress(file_id)
         start = time.perf_counter()
         con = duckdb.connect()
         con.register("incoming_df",incoming_df.to_arrow())
@@ -1063,6 +642,7 @@ class MatchingService:
 
         print(f"Candidate rows: {candidate_df.height}")
         results_map = {}
+        sync_status = "Completed"
 
         all_incoming_ids = (
             incoming_df
@@ -1152,6 +732,7 @@ class MatchingService:
                 result = "MANUAL_REVIEW"
             elif final_score <= 0.85:
                 result = "AUTO_UNMATCH"
+                sync_status = "Awaiting Action"
             else:
                 result = "AUTO_UNMATCH"
             existing = results_map.get(incoming_row_id)
@@ -1213,18 +794,7 @@ class MatchingService:
             WHERE file_id = :file_id
         """)
 
-        with self.engine.begin() as conn:
-            conn.execute(insert_query,results)
-            conn.execute(
-                matched_time_query,
-                {
-                    "matching_time_ms":
-                        matching_time_ms,
-
-                    "file_id":
-                        file_id
-                }
-            )
+        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
         print("Batch insert completed")
 
         return {
@@ -1255,19 +825,9 @@ class MatchingService:
         }
 
     def process_grade_e(self, file_id):
-        uploaded_file = self.get_uploaded_file(file_id)
+        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, "E")
 
-        if not uploaded_file:
-            raise Exception("File ID not found")
-        if uploaded_file["grade"] != "E":
-            raise Exception("This endpoint only processes Grade E files")
-
-        incoming_df = self.load_parquet_from_minio(uploaded_file["minio_path"])
-        print(f"Incoming rows: {incoming_df.height}")
-
-        master_df = self.fetch_master_dataset()
-        print(f"Master rows fetched: {master_df.height}")
-
+        self.starrocks_service.set_sync_status_in_progress(file_id)
         start = time.perf_counter()
         con = duckdb.connect()
         con.register("incoming_df",incoming_df.to_arrow())
@@ -1344,6 +904,7 @@ class MatchingService:
         print(f"Candidate rows: {candidate_df.height}")
 
         results_map = {}
+        sync_status = "Completed"
         for row in candidate_df.iter_rows(named=True):
             incoming_row_id = row["incoming_row_id"]
             if row["nik_master"] is None:
@@ -1452,6 +1013,7 @@ class MatchingService:
                 result = "AUTO_MATCH"
             elif (missing_count == 2 and final_score > 0.8 and final_score < 0.81):
                 result = "MANUAL_REVIEW"
+                sync_status = "Awaiting Action"
             else:
                 result = "AUTO_UNMATCH"
 
@@ -1531,17 +1093,7 @@ class MatchingService:
             WHERE file_id = :file_id
         """)
 
-        with self.engine.begin() as conn:
-            conn.execute(insert_query,results)
-            conn.execute(
-                matched_time_query,
-                {
-                    "matching_time_ms":
-                        matching_time_ms,
-                    "file_id":
-                        file_id
-                }
-            )
+        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
         print("Batch insert completed")
 
         return {
