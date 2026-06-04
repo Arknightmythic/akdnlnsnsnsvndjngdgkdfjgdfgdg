@@ -75,7 +75,7 @@ class MatchingService:
                     "nik_master": None,
                     "file_id": file_id,
                     "match_score": 0,
-                    "match_result": "NO_NIK_MATCH",
+                    "match_result": "AUTO_UNMATCH",
                     "upload_date":
                         uploaded_file["upload_timestamp"]
                 })
@@ -148,7 +148,7 @@ class MatchingService:
             "unmatched_rows": sum(
                 1
                 for r in results
-                if r["match_result"] == "NO_NIK_MATCH"
+                if r["match_result"] == "AUTO_UNMATCH"
             )
         }
 

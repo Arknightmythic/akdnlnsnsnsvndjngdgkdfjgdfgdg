@@ -2,12 +2,7 @@ from .matching_service import MatchingService
 
 class MatchFileHandler:
 
-    def __init__(
-        self,
-        minio_client,
-        bucket_name,
-        starrocks_engine
-    ):
+    def __init__(self, minio_client, bucket_name, starrocks_engine):
 
         self.matching_service = MatchingService(
             engine=starrocks_engine,
