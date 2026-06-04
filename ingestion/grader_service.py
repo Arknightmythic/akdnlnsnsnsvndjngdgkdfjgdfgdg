@@ -85,7 +85,7 @@ class GraderService:
                     grade = Grade.B.value
 
             # Grade C & D: nik must NOT exist, but nama_lengkap..nama_ibu must all exist
-            if grade == "E" and not nik_exists and b_to_f_exist:
+            if grade == Grade.E.value and not nik_exists and b_to_f_exist:
                 all_b_to_f_100 = all(
                     results[f"{c}_null_count"] == 0 for c in b_to_f
                 )
