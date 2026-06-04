@@ -19,8 +19,8 @@ def grade_lazyframe(lf: pl.LazyFrame) -> Grade:
     and assigns a grade (A-E). DB write operations are stripped out.
     """
     target_columns = {"nik", "nama", "tempat_lahir", "tanggal_lahir", "jenis_kelamin", "nama_ibu"}
-    lf_columns_set = set(lf.columns)
-    
+    lf_columns_set = set(lf.collect_schema().names())
+
     # Build expressions for existing target columns only
     expressions = [pl.len().alias("total_rows")]
     for col in sorted(lf_columns_set & target_columns):
