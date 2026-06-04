@@ -1,4 +1,4 @@
-from sqlalchemy import text, bindparam
+from sqlalchemy import text
 
 class RetrieveRepository:
     def __init__(self, engine):
@@ -55,45 +55,41 @@ class RetrieveRepository:
     ):
         offset = (page - 1) * page_size
 
-        where_clauses = [
-            "uf.is_sync = true"
-        ]
-
+        where_conditions = []
         params = {
             "limit": page_size,
             "offset": offset
         }
 
-        if institution_name.strip():
-            params["institution_name"] = f"%{institution_name}%"
-            where_clauses.append("""
-                LOWER(uf.institution_name) LIKE LOWER(:institution_name)
-            """)
+        if institution_name and institution_name.strip("'").strip():
+            where_conditions.append("LOWER(uf.institution_name) LIKE LOWER(:institution_name)")
+            params["institution_name"] = f"%{institution_name.strip(chr(39)).strip()}%"
 
-        if grade != "all":
-            grade_codes = [g.strip() for g in grade.split(",") if g.strip()]
-            if grade_codes:
-                params["grade_codes"] = grade_codes
-                where_clauses.append("rg.grade_code IN :grade_codes")
+        if grade:
+            grade_list = [g.strip() for g in str(grade).split(",") if g.strip()]
+            if grade_list:
+                placeholders = ", ".join([f":grade_{i}" for i in range(len(grade_list))])
+                where_conditions.append(f"rg.grade_id IN ({placeholders})")
+                for i, g in enumerate(grade_list):
+                    params[f"grade_{i}"] = int(g)  
 
-        if sync_status != "all":
-            status_codes = [s.strip() for s in sync_status.split(",") if s.strip()]
-            if status_codes:
-                params["status_codes"] = status_codes
-                where_clauses.append("rs.status_code IN :status_codes")
+        if sync_status:
+            status_list = [s.strip() for s in str(sync_status).split(",") if s.strip()]
+            if status_list:
+                placeholders = ", ".join([f":sync_status_{i}" for i in range(len(status_list))])
+                where_conditions.append(f"rs.sync_status_id IN ({placeholders})")
+                for i, s in enumerate(status_list):
+                    params[f"sync_status_{i}"] = int(s)  
 
-        where_sql = " AND ".join(where_clauses)
+        where_clause = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
 
         count_query = text(f"""
-            SELECT COUNT(*) AS total
+            SELECT COUNT(*)
             FROM uploaded_files uf
             JOIN ref_grades rg ON uf.grade = rg.grade_id
             JOIN ref_sync_statuses rs ON uf.sync_status = rs.sync_status_id
-            WHERE {where_sql}
-        """).bindparams(
-            bindparam("grade_codes", expanding=True),
-            bindparam("status_codes", expanding=True)
-        )
+            {where_clause}
+        """)
 
         data_query = text(f"""
             SELECT
@@ -101,32 +97,21 @@ class RetrieveRepository:
                 uf.original_filename,
                 uf.institution_name,
                 uf.upload_timestamp,
-                uf.grade,
+                rg.grade_code AS grade,
                 uf.row_count,
                 uf.is_sync,
-                uf.sync_status
+                rs.status_code AS sync_status
             FROM uploaded_files uf
             JOIN ref_grades rg ON uf.grade = rg.grade_id
             JOIN ref_sync_statuses rs ON uf.sync_status = rs.sync_status_id
-            WHERE {where_sql}
+            {where_clause}
             ORDER BY uf.upload_timestamp DESC
             LIMIT :limit
             OFFSET :offset
-        """).bindparams(
-            bindparam("grade_codes", expanding=True),
-            bindparam("status_codes", expanding=True)
-        )
-        
+        """)
+
         with self.engine.connect() as conn:
-
-            total_rows = conn.execute(
-                count_query,
-                params
-            ).scalar()
-
-            rows = conn.execute(
-                data_query,
-                params
-            ).mappings().all()
+            total_rows = conn.execute(count_query).scalar()
+            rows = conn.execute(data_query, params).mappings().all()
 
         return [dict(row) for row in rows], total_rows
