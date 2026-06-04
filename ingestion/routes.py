@@ -1,4 +1,5 @@
-from fastapi import APIRouter, UploadFile, File, Request, Header, Form, Depends
+from fastapi import APIRouter, UploadFile, File, Request, Form
+from fastapi.responses import StreamingResponse
 from typing import List
 from .handler import UploadFileHandler
 
@@ -6,7 +7,6 @@ class UploadFileRoutes:
     def __init__(self):
         self.router = APIRouter()
         self.setup_routes()
-        print("Routes initialized")
 
     def setup_routes(self):
         @self.router.post("/")
@@ -16,4 +16,8 @@ class UploadFileRoutes:
                 request.app.state.raw_bucket,
                 request.app.state.starrocks_engine
             )
-            return await handler.upload_file(institution_name, files)
+            # Gunakan StreamingResponse dengan media_type event-stream
+            return StreamingResponse(
+                handler.upload_file_stream(institution_name, files), 
+                media_type="text/event-stream"
+            )
