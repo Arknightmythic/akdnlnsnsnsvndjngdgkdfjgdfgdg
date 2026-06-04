@@ -7,11 +7,15 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import uvicorn
 
+from audit.routes import AuditRoutes
 from ingestion.routes import UploadFileRoutes
 from ingestion.starrocks_connection import engine
 
 from processing.routes import MatchFileRoutes
 from retrieval.routes import RetrieveDataRoutes
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class SynchronoAPI:
     def __init__(self):
@@ -62,6 +66,9 @@ class SynchronoAPI:
 
         retrieve_routes = RetrieveDataRoutes()
         self.app.include_router(retrieve_routes.router)
+
+        audit_routes = AuditRoutes()
+        self.app.include_router(audit_routes.router, tags=["Audit & Retention"])
 
     def run(self):
         uvicorn.run(self.app,host="0.0.0.0",port=9191)

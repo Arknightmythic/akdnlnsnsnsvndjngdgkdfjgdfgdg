@@ -8,7 +8,7 @@ from typing import List
 from dotenv import load_dotenv
 from fastapi import UploadFile, File, HTTPException
 import polars as pl
-
+from audit.audit_service import AuditService
 from .metadata_service import MetadataService
 from .grader_service import GraderService
 
@@ -20,6 +20,7 @@ class UploadFileHandler:
         self.bucket_name = bucket_name
         self.metadata_service = MetadataService(starrocks_engine)
         self.grader_service = GraderService(starrocks_engine)
+        self.audit_service = AuditService(starrocks_engine)
         print("Upload Handler Initialized")
 
     async def upload_file_stream(self, institution_name: str, files: List[UploadFile]):
@@ -103,7 +104,26 @@ class UploadFileHandler:
                     lf=df.lazy(),
                     minio_path=parquet_object_name
                 )
+
+                self.audit_service.log_audit_event(
+                    actor_org_id=institution_name,
+                    action="UPLOAD_AND_GRADE_FILE",
+                    resource_type="FILE",
+                    resource_id=unique_id,
+                    result="SUCCESS",
+                    after_state=json.dumps({"filename": file.filename, "rows": row_count})
+                )
             except Exception as e:
+
+                self.audit_service.log_audit_event(
+                    actor_org_id=institution_name,
+                    action="UPLOAD_AND_GRADE_FILE",
+                    resource_type="FILE",
+                    resource_id=unique_id,
+                    result="FAILED",
+                    after_state=json.dumps({"error": str(e)})
+                )
+                
                 yield emit_event("ERROR", f"Gagal melakukan grading: {e}", file.filename)
 
             # --- EVENT BARU: Yield spesifik untuk menandakan file ini telah selesai 100% ---

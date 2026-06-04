@@ -1,4 +1,6 @@
 import time
+import json
+from io import BytesIO
 import duckdb
 import polars as pl
 
@@ -6,6 +8,7 @@ from sqlalchemy import text
 from .string_similarity import ScoringService
 from .minio_fetching_service import ObjectStorageService
 from .repository import StarrocksService
+from audit.audit_service import AuditService
 
 class MatchingService:
     def __init__(self, engine, minio_client, bucket_name):
@@ -135,7 +138,7 @@ class MatchingService:
         self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, 3)
         print("Batch insert completed")
 
-        return {
+        response_data = {
             "message": "Grade A matching completed",
             "file_id": file_id,
             "processed_rows": len(results),
@@ -150,6 +153,20 @@ class MatchingService:
                 if r["match_result"] == 3
             )
         }
+
+        # [TAMBAHAN] Catat ke Audit Trail
+        self.audit_service.log_audit_event(
+            actor_org_id="system_auto", # Karena proses matching tidak terikat ke user spesifik secara langsung
+            action="MATCHING_GRADE_A",
+            resource_type="FILE",
+            resource_id=file_id,
+            result="SUCCESS",
+            after_state=json.dumps(response_data)
+        )
+
+        return response_data
+
+
 
 
     def count_missing_attributes(self, row):
@@ -299,7 +316,7 @@ class MatchingService:
             self.starrocks_service.insert_manual_review(manual_review_rows)
         print("Batch insert completed")
 
-        return {
+        response_data = {
             "message": "Grade B matching completed",
             "file_id": file_id,
             "processed_rows": len(results),
@@ -319,6 +336,19 @@ class MatchingService:
                 if r["match_result"] == 3
             )
         }
+
+        # [TAMBAHAN] Catat ke Audit Trail
+        self.audit_service.log_audit_event(
+            actor_org_id="system_auto", # Karena proses matching tidak terikat ke user spesifik secara langsung
+            action="MATCHING_GRADE_B",
+            resource_type="FILE",
+            resource_id=file_id,
+            result="SUCCESS",
+            after_state=json.dumps(response_data)
+        )
+
+        return response_data
+
     
     def process_grade_c(self, file_id):
         uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, 3)
@@ -480,8 +510,8 @@ class MatchingService:
         if manual_review_rows:
             self.starrocks_service.insert_manual_review(manual_review_rows)
         print("Batch insert completed")
-
-        return {
+        
+        response_data = {
             "message": "Grade C matching completed",
             "file_id": file_id,
             "processed_rows": len(results),
@@ -501,6 +531,18 @@ class MatchingService:
                 if r["match_result"] == 3
             )
         }
+
+        # [TAMBAHAN] Catat ke Audit Trail
+        self.audit_service.log_audit_event(
+            actor_org_id="system_auto", # Karena proses matching tidak terikat ke user spesifik secara langsung
+            action="MATCHING_GRADE_C",
+            resource_type="FILE",
+            resource_id=file_id,
+            result="SUCCESS",
+            after_state=json.dumps(response_data)
+        )
+
+        return response_data
     
     def process_grade_d(self, file_id):
         uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, 4)
@@ -855,7 +897,7 @@ class MatchingService:
             self.starrocks_service.insert_manual_review(manual_review_rows)
         print("Batch insert completed")
 
-        return {
+        response_data = {
             "message": "Grade D matching completed",
             "file_id": file_id,
             "processed_rows": len(results),
@@ -881,6 +923,18 @@ class MatchingService:
                     == 3
                 )
         }
+
+        # [TAMBAHAN] Catat ke Audit Trail
+        self.audit_service.log_audit_event(
+            actor_org_id="system_auto", # Karena proses matching tidak terikat ke user spesifik secara langsung
+            action="MATCHING_GRADE_D",
+            resource_type="FILE",
+            resource_id=file_id,
+            result="SUCCESS",
+            after_state=json.dumps(response_data)
+        )
+
+        return response_data
 
     def process_grade_e(self, file_id):
         uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, 5)
@@ -1188,7 +1242,7 @@ class MatchingService:
             self.starrocks_service.insert_manual_review(manual_review_rows)
         print("Batch insert completed")
 
-        return {
+        response_data = {
             "message": "Grade E matching completed",
             "file_id": file_id,
             "processed_rows": len(results),
@@ -1214,3 +1268,15 @@ class MatchingService:
                     == 3
                 )
         }
+
+        # [TAMBAHAN] Catat ke Audit Trail
+        self.audit_service.log_audit_event(
+            actor_org_id="system_auto", # Karena proses matching tidak terikat ke user spesifik secara langsung
+            action="MATCHING_GRADE_E",
+            resource_type="FILE",
+            resource_id=file_id,
+            result="SUCCESS",
+            after_state=json.dumps(response_data)
+        )
+
+        return response_data

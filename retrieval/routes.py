@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, Query
 from .handler import RetrieveDataHandler
+from audit.audit_service import AuditService
 
 class RetrieveDataRoutes:
     def __init__(self):
@@ -13,6 +14,16 @@ class RetrieveDataRoutes:
             request: Request,
             page: int = Query(default=1, ge=1)
         ):
+            # Log Access Event
+            client_ip = request.client.host if request.client else "unknown"
+            audit_service = AuditService(request.app.state.starrocks_engine)
+            audit_service.log_access_event(
+                action="VIEW_GRADED_FILES_LIST",
+                resource_type="LIST_VIEW",
+                resource_id=f"page_{page}",
+                ip_address=client_ip,
+                result="SUCCESS"
+            )
             handler = RetrieveDataHandler(
                 request.app.state.starrocks_engine
             )
