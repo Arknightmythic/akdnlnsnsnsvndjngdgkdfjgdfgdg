@@ -1,7 +1,8 @@
 from dotenv import load_dotenv
 
-from chatbot.nodes.query_validator import QueryValidator
 from chatbot.state import SQLState
+from chatbot.nodes.query_validator import QueryValidator
+from chatbot.nodes.query_executor import QueryExecutor
 
 load_dotenv()
 
@@ -9,7 +10,7 @@ def test_query_validator_select_valid():
     state_mock = {"query": "SELECT * FROM master"}
     result: SQLState = QueryValidator.validate_query(state_mock)
     print(f"Result: {result}")
-    
+
     assert result.get("is_dangerous") is False
 
 def test_query_validator_select_clean_markdown():
@@ -55,3 +56,34 @@ def test_query_validator_subquery_injection():
     print(f"Result: {result}")
 
     assert result.get("is_dangerous") is True
+
+def test_query_executor_valid_select():
+    state_mock = {"query": "SELECT * FROM master LIMIT 10"}
+    result: SQLState = QueryExecutor.execution_query(state_mock)
+    print(f"Result: {result}")
+
+    assert "Query executed successfully" in result.get("result")
+
+def test_query_executor_valid_select_markdown():
+    state_mock = {"query": "```sql\nSELECT count(*) FROM master;\n```"}
+    result: SQLState = QueryExecutor.execution_query(state_mock)
+    print(f"Result: {result}")
+
+    assert result.get("error_message") is None
+    assert "Query executed successfully" in result.get("result")
+
+def test_query_executor_no_results():
+    state_mock = {"query": "SELECT * FROM master WHERE nama = 'DataPalsuYangMustahilAda123'"}
+    result: SQLState = QueryExecutor.execution_query(state_mock)
+    print(f"Result: {result}")
+
+    assert result.get("error_message") is None
+    assert "Query executed successfully" in result.get("result")
+
+def test_query_executor_syntax_error():
+    state_mock = {"query": "SELECT * FROM tabel_yang_tidak_ada_123"}
+    result: SQLState = QueryExecutor.execution_query(state_mock)
+    print(f"Result: {result}")
+
+    assert result.get("error_message") is not None
+    assert result.get("result") is None
