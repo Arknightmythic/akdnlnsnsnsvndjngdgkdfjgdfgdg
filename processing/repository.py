@@ -17,6 +17,12 @@ class StarrocksService:
             sync_status = :sync_status
             WHERE file_id = :file_id
         """)
+        self.manual_review_insert_query = text("""
+            INSERT INTO manual_reviews (file_id, id_incoming, nik_incoming, nama_incoming, 
+                                        tempat_lahir_incoming, area_incoming, tanggal_lahir_incoming, nama_ibu_incoming)
+            VALUES (:file_id, :id_incoming, :nik_incoming, :nama_incoming,
+                    :tempat_lahir_incoming, :area_incoming, :tanggal_lahir_incoming, :nama_ibu_incoming)
+        """)
         print("Starrocks Service Initialized!")
 
     def get_uploaded_file(self, file_id):
@@ -147,3 +153,7 @@ class StarrocksService:
                     "sync_status": sync_status,
                     "file_id": file_id
                 })
+            
+    def insert_manual_review(self, rows):
+        with self.engine.begin() as conn:
+            conn.execute(self.manual_review_insert_query, rows)
