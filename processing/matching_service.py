@@ -35,7 +35,7 @@ class MatchingService:
         return uploaded_file, incoming_df, master_df
 
     def process_grade_a(self, file_id):
-        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, "A")
+        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, 1)
 
         start = time.perf_counter()
         con = duckdb.connect()
@@ -74,7 +74,7 @@ class MatchingService:
                     "nik_master": None,
                     "file_id": file_id,
                     "match_score": 0,
-                    "match_result": "AUTO_UNMATCH",
+                    "match_result": 3,
                     "upload_date":
                         uploaded_file["upload_timestamp"]
                 })
@@ -89,9 +89,9 @@ class MatchingService:
             score = round(score * 100, 2)
 
             result = (
-                "AUTO_MATCH"
+                1
                 if score > 80
-                else "LOW_NAME_SIMILARITY"
+                else 3
             )
 
             results.append({
@@ -132,7 +132,7 @@ class MatchingService:
             WHERE file_id = :file_id
         """)
         
-        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id)
+        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, 3)
         print("Batch insert completed")
 
         return {
@@ -142,12 +142,12 @@ class MatchingService:
             "matched_rows": sum(
                 1
                 for r in results
-                if r["match_result"] == "MATCHED"
+                if r["match_result"] == 1
             ),
             "unmatched_rows": sum(
                 1
                 for r in results
-                if r["match_result"] == "AUTO_UNMATCH"
+                if r["match_result"] == 3
             )
         }
 
@@ -163,18 +163,18 @@ class MatchingService:
     def classify_grade_b_result(self, score, missing_count):
         if missing_count <= 1:
             if score >= 85:
-                return "AUTO_MATCH"
-            return "AUTO_UNMATCH"
+                return 1
+            return 3
 
         elif missing_count == 2:
             if 80 < score < 85:
-                return "MANUAL_REVIEW"
-            return "AUTO_UNMATCH"
+                return 2
+            return 3
 
-        return "AUTO_UNMATCH"
+        return 3
 
     def process_grade_b(self, file_id):
-        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, "B")
+        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, 2)
 
         self.starrocks_service.set_sync_status_in_progress(file_id)
         start = time.perf_counter()
@@ -209,7 +209,7 @@ class MatchingService:
 
         results = []
         manual_review_rows = []
-        sync_status = "Completed"
+        sync_status = 3
         for row in joined_df.iter_rows(named=True):
             if row["nik_master"] is None:
                 results.append({
@@ -217,7 +217,7 @@ class MatchingService:
                     "nik_master": None,
                     "file_id": file_id,
                     "match_score": 0,
-                    "match_result": "AUTO_UNMATCH",
+                    "match_result": 3,
                     "upload_date":
                         uploaded_file["upload_timestamp"]
                 })
@@ -239,8 +239,8 @@ class MatchingService:
 
             result = self.classify_grade_b_result(score, missing_count)
 
-            if result == "MANUAL_REVIEW":
-                sync_status = "Awaiting Action"
+            if result == 2:
+                sync_status = 2
 
                 manual_review_rows.append({
                     "file_id": file_id,
@@ -295,7 +295,8 @@ class MatchingService:
         """)
 
         self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
-        self.starrocks_service.insert_manual_review(manual_review_rows)
+        if manual_review_rows:
+            self.starrocks_service.insert_manual_review(manual_review_rows)
         print("Batch insert completed")
 
         return {
@@ -305,22 +306,22 @@ class MatchingService:
             "matched_rows": sum(
                 1
                 for r in results
-                if r["match_result"] == "AUTO_MATCH"
+                if r["match_result"] == 1
             ),
             "manual_review_rows": sum(
                 1
                 for r in results
-                if r["match_result"] == "MANUAL_REVIEW"
+                if r["match_result"] == 2
             ),
             "unmatched_rows": sum(
                 1
                 for r in results
-                if r["match_result"] == "AUTO_UNMATCH"
+                if r["match_result"] == 3
             )
         }
     
     def process_grade_c(self, file_id):
-        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, "C")
+        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, 3)
 
         self.starrocks_service.set_sync_status_in_progress(file_id)
         start = time.perf_counter()
@@ -367,14 +368,14 @@ class MatchingService:
         print(f"Candidate rows: {candidate_df.height}")
 
         results_map = {}
-        sync_status = "Completed"
+        sync_status = 3
         for row in candidate_df.iter_rows(named=True):
-            id_incoming = row["id_incoming"]
+            id_incoming = row["id"]
             if row["nik_master"] is None:
                 if id_incoming not in results_map:
                     results_map[id_incoming] = {
                         "score": 0,
-                        "result": "AUTO_UNMATCH",
+                        "result": 3,
                         "nik_master": None
                     }
 
@@ -404,12 +405,12 @@ class MatchingService:
 
             if (existing is None or final_score > existing["score"]):
                 if final_score >= 0.87:
-                    result = "AUTO_MATCH"
+                    result = 1
                 elif final_score >= 0.85:
-                    result = "MANUAL_REVIEW"
-                    sync_status = "Awaiting Action"
+                    result = 2
+                    sync_status = 2
                 else:
-                    result = "AUTO_UNMATCH"
+                    result = 3
                 results_map[id_incoming] = {
                     "score": final_score,
                     "result": result,
@@ -428,7 +429,7 @@ class MatchingService:
                 "upload_date": uploaded_file["upload_timestamp"]
             })
 
-            if best_match["result"] == "MANUAL_REVIEW":
+            if best_match["result"] == 2:
                 incoming_row = (
                     incoming_df
                     .filter(pl.col("id") == id_incoming)
@@ -476,7 +477,8 @@ class MatchingService:
         """)
 
         self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
-        self.starrocks_service.insert_manual_review(manual_review_rows)
+        if manual_review_rows:
+            self.starrocks_service.insert_manual_review(manual_review_rows)
         print("Batch insert completed")
 
         return {
@@ -486,22 +488,22 @@ class MatchingService:
             "matched_rows": sum(
                 1
                 for r in results
-                if r["match_result"] == "AUTO_MATCH"
+                if r["match_result"] == 1
             ),
             "manual_review_rows": sum(
                 1
                 for r in results
-                if r["match_result"] == "MANUAL_REVIEW"
+                if r["match_result"] == 2
             ),
             "unmatched_rows": sum(
                 1
                 for r in results
-                if r["match_result"] == "AUTO_UNMATCH"
+                if r["match_result"] == 3
             )
         }
     
     def process_grade_d(self, file_id):
-        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, "D")
+        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, 4)
 
         self.starrocks_service.set_sync_status_in_progress(file_id)
         start = time.perf_counter()
@@ -677,7 +679,7 @@ class MatchingService:
 
         print(f"Candidate rows: {candidate_df.height}")
         results_map = {}
-        sync_status = "Completed"
+        sync_status = 3
 
         all_incoming_ids = (
             incoming_df
@@ -690,7 +692,7 @@ class MatchingService:
             if incoming_id not in results_map:
                 results_map[incoming_id] = {
                     "score": 0,
-                    "result": "AUTO_UNMATCH",
+                    "result": 3,
                     "nik_master": None
                 }
 
@@ -700,7 +702,7 @@ class MatchingService:
                 if incoming_row_id not in results_map:
                     results_map[incoming_row_id] = {
                         "score": 0,
-                        "result": "AUTO_UNMATCH",
+                        "result": 3,
                         "nik_master": None
                     }
 
@@ -760,16 +762,16 @@ class MatchingService:
             final_score = (weighted_score / active_weight)
 
             if missing_count > 2:
-                result = "AUTO_UNMATCH"
+                result = 3
             elif (missing_count <= 1 and final_score >= 0.9):
-                result = "AUTO_MATCH"
+                result = 1
             elif (missing_count == 2 and 0.85 < final_score < 0.9):
-                result = "MANUAL_REVIEW"
+                result = 2
+                sync_status = 2
             elif final_score <= 0.85:
-                result = "AUTO_UNMATCH"
-                sync_status = "Awaiting Action"
+                result = 3
             else:
-                result = "AUTO_UNMATCH"
+                result = 3
             existing = results_map.get(incoming_row_id)
 
             if (existing is None or final_score > existing["score"]):
@@ -791,7 +793,7 @@ class MatchingService:
                 "upload_date": uploaded_file["upload_timestamp"]
             })
 
-            if best_match["result"] == "MANUAL_REVIEW":
+            if best_match["result"] == 2:
                 incoming_row = (
                     incoming_df
                     .filter(pl.col("id") == incoming_row_id)
@@ -849,7 +851,8 @@ class MatchingService:
         """)
 
         self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
-        self.starrocks_service.insert_manual_review(manual_review_rows)
+        if manual_review_rows:
+            self.starrocks_service.insert_manual_review(manual_review_rows)
         print("Batch insert completed")
 
         return {
@@ -861,26 +864,26 @@ class MatchingService:
                     1
                     for r in results
                     if r["match_result"]
-                    == "AUTO_MATCH"
+                    == 1
                 ),
             "manual_review_rows":
                 sum(
                     1
                     for r in results
                     if r["match_result"]
-                    == "MANUAL_REVIEW"
+                    == 2
                 ),
             "unmatched_rows":
                 sum(
                     1
                     for r in results
                     if r["match_result"]
-                    == "AUTO_UNMATCH"
+                    == 3
                 )
         }
 
     def process_grade_e(self, file_id):
-        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, "E")
+        uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, 5)
 
         self.starrocks_service.set_sync_status_in_progress(file_id)
         start = time.perf_counter()
@@ -959,14 +962,14 @@ class MatchingService:
         print(f"Candidate rows: {candidate_df.height}")
 
         results_map = {}
-        sync_status = "Completed"
+        sync_status = 3
         for row in candidate_df.iter_rows(named=True):
             incoming_row_id = row["incoming_row_id"]
             if row["nik_master"] is None:
                 if incoming_row_id not in results_map:
                     results_map[incoming_row_id] = {
                         "score": 0,
-                        "result": "AUTO_UNMATCH",
+                        "result": 3,
                         "nik_master": None
                     }
 
@@ -1063,14 +1066,14 @@ class MatchingService:
             final_score = (weighted_score / active_weight if active_weight > 0 else 0)
 
             if (missing_count > 2 or final_score <= 0.8):
-                result = "AUTO_UNMATCH"
+                result = 3
             elif (missing_count <= 1 and final_score >= 0.81):
-                result = "AUTO_MATCH"
+                result = 1
             elif (missing_count == 2 and final_score > 0.8 and final_score < 0.81):
-                result = "MANUAL_REVIEW"
-                sync_status = "Awaiting Action"
+                result = 2
+                sync_status = 2
             else:
-                result = "AUTO_UNMATCH"
+                result = 3
 
             existing = results_map.get(incoming_row_id)
 
@@ -1089,7 +1092,7 @@ class MatchingService:
         for incoming_row_id in missing_incoming_ids:
             results_map[incoming_row_id] = {
                 "score": 0,
-                "result": "AUTO_UNMATCH",
+                "result": 3,
                 "nik_master": None
             }
 
@@ -1113,7 +1116,7 @@ class MatchingService:
                     ]
             })
 
-            if best_match["result"] == "MANUAL_REVIEW":
+            if best_match["result"] == 2:
                 incoming_row = (
                     incoming_df
                     .filter(pl.col("id") == incoming_row_id)
@@ -1194,20 +1197,20 @@ class MatchingService:
                     1
                     for r in results
                     if r["match_result"]
-                    == "AUTO_MATCH"
+                    == 1
                 ),
             "manual_review_rows":
                 sum(
                     1
                     for r in results
                     if r["match_result"]
-                    == "MANUAL_REVIEW"
+                    == 2
                 ),
             "unmatched_rows":
                 sum(
                     1
                     for r in results
                     if r["match_result"]
-                    == "AUTO_UNMATCH"
+                    == 3
                 )
         }

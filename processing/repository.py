@@ -7,7 +7,7 @@ class StarrocksService:
         self.sync_status_in_progress_query = text("""
             UPDATE uploaded_files
             SET
-            sync_status = 'In Progress'
+            sync_status = 1
             WHERE file_id = :file_id
         """)
         self.sync_status_query = text("""
@@ -18,7 +18,7 @@ class StarrocksService:
             WHERE file_id = :file_id
         """)
         self.manual_review_insert_query = text("""
-            INSERT INTO manual_reviews (file_id, id_incoming, nik_incoming, nama_incoming, 
+            INSERT INTO manual_matches (file_id, id_incoming, nik_incoming, nama_incoming, 
                                         tempat_lahir_incoming, area_incoming, tanggal_lahir_incoming, nama_ibu_incoming)
             VALUES (:file_id, :id_incoming, :nik_incoming, :nama_incoming,
                     :tempat_lahir_incoming, :area_incoming, :tanggal_lahir_incoming, :nama_ibu_incoming)
