@@ -1,6 +1,8 @@
 from sqlalchemy import create_engine
 import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 DATABASE_URL = (
     f"mysql+pymysql://"

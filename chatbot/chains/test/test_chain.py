@@ -1,9 +1,10 @@
 from langchain.messages import HumanMessage
 from dotenv import load_dotenv
 
+from chatbot.db import db
 from chatbot.chains.query_generation import QueryGeneration, QueryGenerationOutput
 from chatbot.chains.query_repair import QueryRepair, QueryRepairOutput
-from chatbot.db import db
+from chatbot.chains.answer_generation import AnswerGeneration, AnswerGenerationOutput
 
 load_dotenv()
 
@@ -192,3 +193,50 @@ def test_query_repair_rejects_dml():
 
     assert "delete" not in query_lower
     assert "update" not in query_lower
+
+def test_answer_generation_single_value():
+    question = HumanMessage("Berapa jumlah file yang sudah diunggah?")
+    query_result = "[(150,)]"
+
+    chain = AnswerGeneration().get_chain()
+    result: AnswerGenerationOutput = chain.invoke({
+        "question": question,
+        "query_result": query_result
+    })
+
+    print(f"Generated Answer: {result.answer}")
+    answer_lower = result.answer.lower()
+
+    assert "150" in answer_lower
+    assert "file" in answer_lower
+
+def test_answer_generation_multiple_rows():
+    question = HumanMessage("Sebutkan 3 original filename pertama beserta grade-nya")
+    query_result = "[('data_penduduk_jabar.csv', 'A'), ('data_penduduk_jateng.csv', 'B'), ('data_penduduk_jatim.csv', 'A')]"
+
+    chain = AnswerGeneration().get_chain()
+    result: AnswerGenerationOutput = chain.invoke({
+        "question": question,
+        "query_result": query_result
+    })
+
+    print(f"Generated Answer: {result.answer}")
+    answer_lower = result.answer.lower()
+    
+    assert "data_penduduk_jabar.csv" in answer_lower
+    assert "grade" in answer_lower
+
+def test_answer_generation_empty_result():
+    question = HumanMessage("Siapa saja nama orang dari provinsi antartika?")
+    query_result = "[]"
+
+    chain = AnswerGeneration().get_chain()
+    result: AnswerGenerationOutput = chain.invoke({
+        "question": question,
+        "query_result": query_result
+    })
+
+    print(f"Generated Answer: {result.answer}")
+    answer_lower = result.answer.lower()
+    
+    assert any(word in answer_lower for word in ["tidak", "kosong", "belum", "maaf", "no"])
