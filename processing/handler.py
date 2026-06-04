@@ -20,7 +20,7 @@ class MatchFileHandler:
     async def process_file(self, file_id: str):
         print("Processing data...")
 
-        uploaded_file = self.matching_service.get_uploaded_file(
+        uploaded_file = self.matching_service.starrocks_service.get_uploaded_file(
             file_id
         )
 
