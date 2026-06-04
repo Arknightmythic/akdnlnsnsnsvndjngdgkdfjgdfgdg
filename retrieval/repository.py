@@ -14,16 +14,20 @@ class RetrieveRepository:
 
         data_query = text("""
             SELECT
-                file_id,
-                original_filename,
-                institution_name,
-                upload_timestamp,
-                grade,
-                row_count,
-                processing_status,
-                is_sync
-            FROM uploaded_files
-            ORDER BY upload_timestamp DESC
+                uf.file_id,
+                uf.original_filename,
+                uf.institution_name,
+                uf.upload_timestamp,
+                rg.grade_code as grade,
+                uf.row_count,
+                rp.process_name as processing_status,
+                uf.is_sync
+            FROM uploaded_files uf
+            INNER JOIN ref_grades rg
+                ON uf.grade = rg.grade_id
+            INNER JOIN ref_process rp
+                ON uf.processing_status = rp.process_id
+            ORDER BY uf.upload_timestamp DESC
             LIMIT :limit
             OFFSET :offset
         """)
