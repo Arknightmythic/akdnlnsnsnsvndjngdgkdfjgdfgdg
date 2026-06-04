@@ -54,6 +54,7 @@ class MatchingService:
 
         joined_df = con.execute("""
             SELECT
+                i.id,
                 i.nik,
                 i.nama,
                 i.nama_clean,
@@ -71,7 +72,7 @@ class MatchingService:
         for row in joined_df.iter_rows(named=True):
             if row["nik_master"] is None:
                 results.append({
-                    "nik_incoming": row["nik"],
+                    "id_incoming": row["id"],
                     "nik_master": None,
                     "file_id": file_id,
                     "match_score": 0,
@@ -96,7 +97,7 @@ class MatchingService:
             )
 
             results.append({
-                "nik_incoming": row["nik"],
+                "id_incoming": row["id"],
                 "nik_master": row["nik_master"],
                 "file_id": file_id,
                 "match_score": score,
@@ -110,7 +111,7 @@ class MatchingService:
 
         insert_query = text("""
             INSERT INTO institution (
-                nik_incoming,
+                id_incoming,
                 nik_master,
                 file_id,
                 match_score,
@@ -118,7 +119,7 @@ class MatchingService:
                 upload_date
             )
             VALUES (
-                :nik_incoming,
+                :id_incoming,
                 :nik_master,
                 :file_id,
                 :match_score,
@@ -186,6 +187,7 @@ class MatchingService:
 
         joined_df = con.execute("""
             SELECT
+                i.id,
                 i.nik,
                 i.nama,
                 i.nama_clean,
@@ -212,7 +214,7 @@ class MatchingService:
         for row in joined_df.iter_rows(named=True):
             if row["nik_master"] is None:
                 results.append({
-                    "nik_incoming": row["nik"],
+                    "id_incoming": row["id"],
                     "nik_master": None,
                     "file_id": file_id,
                     "match_score": 0,
@@ -241,7 +243,7 @@ class MatchingService:
                 sync_status = "Awaiting Action"
 
             results.append({
-                "nik_incoming": row["nik"],
+                "id_incoming": row["id"],
                 "nik_master": row["nik_master"],
                 "file_id": file_id,
                 "match_score": score,
@@ -257,7 +259,7 @@ class MatchingService:
 
         insert_query = text("""
             INSERT INTO institution (
-                nik_incoming,
+                id_incoming,
                 nik_master,
                 file_id,
                 match_score,
@@ -265,7 +267,7 @@ class MatchingService:
                 upload_date
             )
             VALUES (
-                :nik_incoming,
+                :id_incoming,
                 :nik_master,
                 :file_id,
                 :match_score,
@@ -316,7 +318,7 @@ class MatchingService:
 
         candidate_query = """
             SELECT
-                i.id AS nik_incoming,
+                i.id,
                 i.nama,
                 i.nama_clean,
                 i.tempat_lahir,
@@ -354,10 +356,10 @@ class MatchingService:
         results_map = {}
         sync_status = "Completed"
         for row in candidate_df.iter_rows(named=True):
-            nik_incoming = row["nik_incoming"]
+            id_incoming = row["nik_inidcoming"]
             if row["nik_master"] is None:
-                if nik_incoming not in results_map:
-                    results_map[nik_incoming] = {
+                if id_incoming not in results_map:
+                    results_map[id_incoming] = {
                         "score": 0,
                         "result": "AUTO_UNMATCH",
                         "nik_master": None
@@ -385,7 +387,7 @@ class MatchingService:
                 tanggal_lahir_score * 0.2
             )
 
-            existing = results_map.get(nik_incoming)
+            existing = results_map.get(id_incoming)
 
             if (existing is None or final_score > existing["score"]):
                 if final_score >= 0.87:
@@ -395,7 +397,7 @@ class MatchingService:
                     sync_status = "Awaiting Action"
                 else:
                     result = "AUTO_UNMATCH"
-                results_map[nik_incoming] = {
+                results_map[id_incoming] = {
                     "score": final_score,
                     "result": result,
                     "nik_master": row["nik_master"]
@@ -403,9 +405,9 @@ class MatchingService:
 
         results = []
 
-        for nik_incoming, best_match in results_map.items():
+        for id_incoming, best_match in results_map.items():
             results.append({
-                "nik_incoming": nik_incoming,
+                "id_incoming": id_incoming,
                 "nik_master": best_match["nik_master"],
                 "file_id": file_id,
                 "match_score": round(best_match["score"] * 100,2),
@@ -418,7 +420,7 @@ class MatchingService:
         print(f"Results prepared: {len(results)}")
         insert_query = text("""
             INSERT INTO institution (
-                nik_incoming,
+                id_incoming,
                 nik_master,
                 file_id,
                 match_score,
@@ -426,7 +428,7 @@ class MatchingService:
                 upload_date
             )
             VALUES (
-                :nik_incoming,
+                :id_incoming,
                 :nik_master,
                 :file_id,
                 :match_score,
@@ -748,7 +750,7 @@ class MatchingService:
 
         for incoming_row_id, best_match in (results_map.items()):
             results.append({
-                "nik_incoming": incoming_row_id,
+                "id_incoming": incoming_row_id,
                 "nik_master": best_match["nik_master"],
                 "file_id": file_id,
                 "match_score": round(best_match["score"] * 100, 2),
@@ -768,7 +770,7 @@ class MatchingService:
 
         insert_query = text("""
             INSERT INTO institution (
-                nik_incoming,
+                id_incoming,
                 nik_master,
                 file_id,
                 match_score,
@@ -776,7 +778,7 @@ class MatchingService:
                 upload_date
             )
             VALUES (
-                :nik_incoming,
+                :id_incoming,
                 :nik_master,
                 :file_id,
                 :match_score,
@@ -1041,7 +1043,7 @@ class MatchingService:
         results = []
         for incoming_row_id, best_match in (results_map.items()):
             results.append({
-                "nik_incoming": incoming_row_id,
+                "id_incoming": incoming_row_id,
                 "nik_master": best_match["nik_master"],
                 "file_id": file_id,
                 "match_score":
@@ -1069,7 +1071,7 @@ class MatchingService:
 
         insert_query = text("""
             INSERT INTO institution (
-                nik_incoming,
+                id_incoming,
                 nik_master,
                 file_id,
                 match_score,
@@ -1077,7 +1079,7 @@ class MatchingService:
                 upload_date
             )
             VALUES (
-                :nik_incoming,
+                :id_incoming,
                 :nik_master,
                 :file_id,
                 :match_score,
