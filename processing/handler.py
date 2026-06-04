@@ -2,12 +2,7 @@ from .matching_service import MatchingService
 
 class MatchFileHandler:
 
-    def __init__(
-        self,
-        minio_client,
-        bucket_name,
-        starrocks_engine
-    ):
+    def __init__(self, minio_client, bucket_name, starrocks_engine):
 
         self.matching_service = MatchingService(
             engine=starrocks_engine,
@@ -20,7 +15,7 @@ class MatchFileHandler:
     async def process_file(self, file_id: str):
         print("Processing data...")
 
-        uploaded_file = self.matching_service.get_uploaded_file(
+        uploaded_file = self.matching_service.starrocks_service.get_uploaded_file(
             file_id
         )
 
