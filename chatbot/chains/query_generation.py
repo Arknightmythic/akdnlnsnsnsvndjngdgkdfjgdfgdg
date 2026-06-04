@@ -1,38 +1,26 @@
 from langchain_core.prompts import PromptTemplate
-from langchain_ollama import ChatOllama
+from langchain.chat_models import init_chat_model
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 import os
 
+from util.prompts import QUERY_GENERATION_PROMPTS
+
 load_dotenv()
 
-MODEL_BASE_URL = os.getenv("OLLAMA_BASE_URL")
+MODEL_BASE_URL = os.getenv("MODEL_BASE_URL")
 
 class QueryGenerationOutput(BaseModel):
     query: str = Field(description="The generated")
 
 class QueryGeneration:
-    def __init__(self):
-        self.llm = ChatOllama(
+    def __init__(self, model: str = "ollama:ministral-3:8b", prompt_template: str = QUERY_GENERATION_PROMPTS):
+        self.llm = init_chat_model(
             base_url=MODEL_BASE_URL, 
-            model="qwen3.5:9b"
+            model=model,
         ).with_structured_output(QueryGenerationOutput)
 
-        self.prompt = PromptTemplate.from_template(
-        """
-        You are a helpful assistant that generates MySQL queries based on a given database schema and a question.
-        Rules:
-        - Include only exiting columns and tables
-        - Add appropriate WHERE, GROUP BY, ORDER BY clauses as needed
-        - Limit results to 10 rows unless specified otherwisem
-
-        Database Schema:
-        {schema}
-
-        Question:
-        {question}
-        """
-        )
+        self.prompt = PromptTemplate.from_template(prompt_template)
 
     def get_chain(self):
         return self.prompt | self.llm
