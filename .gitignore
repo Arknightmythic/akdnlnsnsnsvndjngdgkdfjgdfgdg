@@ -225,4 +225,4 @@ __marimo__/
 _marimo_/
 
 # Streamlit
-.streamlit/secrets.toml
+.streamlit/secrets.tomluv.lock
