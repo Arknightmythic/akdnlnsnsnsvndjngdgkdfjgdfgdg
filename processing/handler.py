@@ -15,36 +15,34 @@ class MatchFileHandler:
     async def process_file(self, file_id: str):
         print("Processing data...")
 
-        uploaded_file = self.matching_service.starrocks_service.get_uploaded_file(
-            file_id
-        )
+        uploaded_file = self.matching_service.starrocks_service.get_uploaded_file(file_id)
 
         if not uploaded_file:
             raise Exception("File ID not found")
 
         grade = uploaded_file["grade"]
 
-        if grade == "A":
+        if grade == 1:
             return self.matching_service.process_grade_a(
                 file_id
             )
 
-        if grade == "B":
+        if grade == 2:
             return self.matching_service.process_grade_b(
                 file_id
             )
         
-        if grade == "C":
+        if grade == 3:
             return self.matching_service.process_grade_c(
                 file_id
             )
         
-        if grade == "D":
+        if grade == 4:
             return self.matching_service.process_grade_d(
                 file_id
             )
         
-        if grade == "E":
+        if grade == 5:
             return self.matching_service.process_grade_e(
                 file_id
             )
