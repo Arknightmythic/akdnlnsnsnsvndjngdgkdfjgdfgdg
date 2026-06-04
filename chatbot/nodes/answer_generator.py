@@ -13,7 +13,7 @@ class AnswerGenerator:
         chain = AnswerGeneration().get_chain()
         result = chain.invoke({
             "question": question,
-            "result": result_query
+            "query_result": result_query
         })
 
         return {"answer": result.answer}
