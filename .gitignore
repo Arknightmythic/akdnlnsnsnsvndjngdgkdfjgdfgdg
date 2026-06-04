@@ -231,3 +231,4 @@ _marimo_/
 
 
 .venv/
+uv.lock
