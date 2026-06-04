@@ -11,6 +11,7 @@ from ingestion.routes import UploadFileRoutes
 from ingestion.starrocks_connection import engine
 
 from processing.routes import MatchFileRoutes
+from retrieval.routes import RetrieveDataRoutes
 
 class SynchronoAPI:
     def __init__(self):
@@ -58,6 +59,9 @@ class SynchronoAPI:
 
         match_routes = MatchFileRoutes()
         self.app.include_router(match_routes.router, prefix="/match")
+
+        retrieve_routes = RetrieveDataRoutes()
+        self.app.include_router(retrieve_routes.router)
 
     def run(self):
         uvicorn.run(self.app,host="0.0.0.0",port=9191)

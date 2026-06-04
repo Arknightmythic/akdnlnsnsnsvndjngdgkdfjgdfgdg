@@ -1,5 +1,6 @@
 from sqlalchemy import text
 from datetime import datetime
+from .enums import Process
 
 class MetadataService:
 
@@ -38,6 +39,7 @@ class MetadataService:
         """)
 
         with self.engine.begin() as connection:
+            process = Process.UPLOADED.value
             connection.execute(
                 query,
                 {
@@ -46,7 +48,7 @@ class MetadataService:
                     "institution_name": institution_name,
                     "minio_path": minio_path,
                     "upload_timestamp": datetime.utcnow(),
-                    "processing_status": "UPLOADED",
+                    "processing_status": int(process),
                     "row_count": row_count
                 }
             )

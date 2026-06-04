@@ -1,7 +1,8 @@
 import time
+import polars as pl
 from sqlalchemy import text
 from datetime import datetime, timezone
-import polars as pl
+from .enums import Grade, Process
 
 
 class GraderService:
@@ -58,7 +59,7 @@ class GraderService:
             results["nik_not_len16_count"] = pcts.get("nik_not_len16_count", 0)
 
             # --- Grading logic (checked in order: A, B, C, D, else E) ---
-            grade = "E"
+            grade = Grade.E.value
 
             nik_exists = results["nik_exists"]
             b_to_f = ["nama", "tempat_lahir", "tanggal_lahir", "jenis_kelamin", "nama_ibu"]
@@ -72,7 +73,7 @@ class GraderService:
                 )
                 len16_100 = results["nik_not_len16_count"] == 0
                 if all_100_nonnull and len16_100:
-                    grade = "A"
+                    grade = Grade.A.value
                 elif (
                     results["nik_len16"] >= 0.7
                     and results["nama_null_count"] == 0
@@ -81,15 +82,15 @@ class GraderService:
                     and results["jenis_kelamin_nonnull"] >= 0.7
                     and results["nama_ibu_nonnull"] >= 0.6
                 ):
-                    grade = "B"
+                    grade = Grade.B.value
 
             # Grade C & D: nik must NOT exist, but nama_lengkap..nama_ibu must all exist
-            if grade == "E" and not nik_exists and b_to_f_exist:
+            if grade == Grade.E.value and not nik_exists and b_to_f_exist:
                 all_b_to_f_100 = all(
                     results[f"{c}_null_count"] == 0 for c in b_to_f
                 )
                 if all_b_to_f_100:
-                    grade = "C"
+                    grade = Grade.C.value
                 elif (
                     results["nama_null_count"] == 0
                     and results["tempat_lahir_nonnull"] >= 0.7
@@ -97,13 +98,14 @@ class GraderService:
                     and results["jenis_kelamin_nonnull"] >= 0.7
                     and results["nama_ibu_nonnull"] >= 0.6
                 ):
-                    grade = "D"
+                    grade = Grade.D.value
 
+            process = Process.GRADED.value
             record = {
                 "file_id": file_id,
                 "upload_timestamp": datetime.now(timezone.utc),
-                "processing_status": "GRADED",
-                "grade": grade,
+                "processing_status": int(process),
+                "grade": int(grade),
             }
 
             insert_query = text("""
