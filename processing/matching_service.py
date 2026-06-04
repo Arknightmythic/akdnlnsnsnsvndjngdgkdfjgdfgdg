@@ -1,10 +1,8 @@
 import time
-from io import BytesIO
 import duckdb
-import tempfile
 import polars as pl
-from sqlalchemy import text
 
+from sqlalchemy import text
 from .string_similarity import ScoringService
 from .minio_fetching_service import ObjectStorageService
 from .repository import StarrocksService
@@ -91,7 +89,7 @@ class MatchingService:
             score = round(score * 100, 2)
 
             result = (
-                "MATCHED"
+                "AUTO_MATCH"
                 if score > 80
                 else "LOW_NAME_SIMILARITY"
             )
@@ -210,6 +208,7 @@ class MatchingService:
         print(f"Joined rows: {joined_df.height}")
 
         results = []
+        manual_review_rows = []
         sync_status = "Completed"
         for row in joined_df.iter_rows(named=True):
             if row["nik_master"] is None:
@@ -239,8 +238,21 @@ class MatchingService:
             )
 
             result = self.classify_grade_b_result(score, missing_count)
+
             if result == "MANUAL_REVIEW":
                 sync_status = "Awaiting Action"
+
+                manual_review_rows.append({
+                    "file_id": file_id,
+                    "id_incoming": row.get("id"),
+                    "nik_incoming": row.get("nik"),
+                    "nama_incoming": row.get("nama"),
+                    "tempat_lahir_incoming": row.get("tempat_lahir"),
+                    "area_incoming": None,
+                    "tanggal_lahir_incoming": row.get("tanggal_lahir"),
+                    "jenis_kelamin": row.get("jenis_kelamin"),
+                    "nama_ibu_incoming": row.get("nama_ibu")
+                })
 
             results.append({
                 "id_incoming": row["id"],
@@ -283,6 +295,7 @@ class MatchingService:
         """)
 
         self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
+        self.starrocks_service.insert_manual_review(manual_review_rows)
         print("Batch insert completed")
 
         return {
@@ -356,7 +369,7 @@ class MatchingService:
         results_map = {}
         sync_status = "Completed"
         for row in candidate_df.iter_rows(named=True):
-            id_incoming = row["nik_inidcoming"]
+            id_incoming = row["id_incoming"]
             if row["nik_master"] is None:
                 if id_incoming not in results_map:
                     results_map[id_incoming] = {
@@ -404,7 +417,7 @@ class MatchingService:
                 }
 
         results = []
-
+        manual_review_rows = []
         for id_incoming, best_match in results_map.items():
             results.append({
                 "id_incoming": id_incoming,
@@ -414,6 +427,25 @@ class MatchingService:
                 "match_result": best_match["result"],
                 "upload_date": uploaded_file["upload_timestamp"]
             })
+
+            if best_match["result"] == "MANUAL_REVIEW":
+                incoming_row = (
+                    incoming_df
+                    .filter(pl.col("id") == id_incoming)
+                    .to_dicts()[0]
+                )
+
+                manual_review_rows.append({
+                    "file_id": file_id,
+                    "id_incoming": incoming_row.get("id"),
+                    "nik_incoming": None,
+                    "nama_incoming": incoming_row.get("nama"),
+                    "tempat_lahir_incoming": incoming_row.get("tempat_lahir"),
+                    "area_incoming": None,
+                    "tanggal_lahir_incoming": incoming_row.get("tanggal_lahir"),
+                    "jenis_kelamin": incoming_row.get("jenis_kelamin"),
+                    "nama_ibu_incoming": incoming_row.get("nama_ibu")
+                })
 
         matching_time_ms = round((time.perf_counter() - start) * 1000,2)
         print(f"Matching time: {matching_time_ms} ms")
@@ -444,6 +476,7 @@ class MatchingService:
         """)
 
         self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
+        self.starrocks_service.insert_manual_review(manual_review_rows)
         print("Batch insert completed")
 
         return {
@@ -747,7 +780,7 @@ class MatchingService:
                 }
 
         results = []
-
+        manual_review_rows = []
         for incoming_row_id, best_match in (results_map.items()):
             results.append({
                 "id_incoming": incoming_row_id,
@@ -757,6 +790,25 @@ class MatchingService:
                 "match_result": best_match["result"],
                 "upload_date": uploaded_file["upload_timestamp"]
             })
+
+            if best_match["result"] == "MANUAL_REVIEW":
+                incoming_row = (
+                    incoming_df
+                    .filter(pl.col("id") == incoming_row_id)
+                    .to_dicts()[0]
+                )
+
+                manual_review_rows.append({
+                    "file_id": file_id,
+                    "id_incoming": incoming_row.get("id"),
+                    "nik_incoming": None,
+                    "nama_incoming": incoming_row.get("nama"),
+                    "tempat_lahir_incoming": incoming_row.get("tempat_lahir"),
+                    "area_incoming": None,
+                    "tanggal_lahir_incoming": incoming_row.get("tanggal_lahir"),
+                    "jenis_kelamin": incoming_row.get("jenis_kelamin"),
+                    "nama_ibu_incoming": incoming_row.get("nama_ibu")
+                })
 
         matching_time_ms = round(
             (
@@ -797,6 +849,7 @@ class MatchingService:
         """)
 
         self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
+        self.starrocks_service.insert_manual_review(manual_review_rows)
         print("Batch insert completed")
 
         return {
@@ -1041,6 +1094,7 @@ class MatchingService:
             }
 
         results = []
+        manual_review_rows = []
         for incoming_row_id, best_match in (results_map.items()):
             results.append({
                 "id_incoming": incoming_row_id,
@@ -1058,6 +1112,37 @@ class MatchingService:
                         "upload_timestamp"
                     ]
             })
+
+            if best_match["result"] == "MANUAL_REVIEW":
+                incoming_row = (
+                    incoming_df
+                    .filter(pl.col("id") == incoming_row_id)
+                    .to_dicts()[0]
+                )
+
+                area_parts = [
+                    incoming_row.get("provinsi"),
+                    incoming_row.get("kabupaten"),
+                    incoming_row.get("kecamatan"),
+                    incoming_row.get("kelurahan")
+                ]
+
+                area_incoming = ", ".join(
+                    str(x).strip()
+                    for x in area_parts
+                    if x is not None and str(x).strip()
+                )
+
+                manual_review_rows.append({
+                    "file_id": file_id,
+                    "id_incoming": incoming_row.get("id"),
+                    "nik_incoming": incoming_row.get("nik"),
+                    "nama_incoming": incoming_row.get("nama"),
+                    "tempat_lahir_incoming": incoming_row.get("tempat_lahir"),
+                    "area_incoming": area_incoming,
+                    "tanggal_lahir_incoming": incoming_row.get("tanggal_lahir"),
+                    "nama_ibu_incoming": incoming_row.get("nama_ibu")
+                })
 
         matching_time_ms = round(
             (
@@ -1096,6 +1181,8 @@ class MatchingService:
         """)
 
         self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
+        if manual_review_rows:
+            self.starrocks_service.insert_manual_review(manual_review_rows)
         print("Batch insert completed")
 
         return {
