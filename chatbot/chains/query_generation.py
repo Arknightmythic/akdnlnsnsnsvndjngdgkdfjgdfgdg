@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 import os
 
-from util.prompts import QUERY_GENERATION_PROMPTS
+from util.prompts import QUERY_GENERATION_PROMPT
 
 load_dotenv()
 
@@ -14,7 +14,7 @@ class QueryGenerationOutput(BaseModel):
     query: str = Field(description="The generated")
 
 class QueryGeneration:
-    def __init__(self, model: str = "ollama:ministral-3:8b", prompt_template: str = QUERY_GENERATION_PROMPTS):
+    def __init__(self, model: str = "ollama:ministral-3:8b", prompt_template: str = QUERY_GENERATION_PROMPT):
         self.llm = init_chat_model(
             base_url=MODEL_BASE_URL, 
             model=model,

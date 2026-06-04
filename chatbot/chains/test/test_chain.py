@@ -2,19 +2,17 @@ from langchain.messages import HumanMessage
 from dotenv import load_dotenv
 
 from chatbot.chains.query_generation import QueryGeneration, QueryGenerationOutput
+from chatbot.chains.query_repair import QueryRepair, QueryRepairOutput
 from chatbot.db import db
 
 load_dotenv()
 
 def test_query_generation_answer_select():
     schema = db.get_table_info()
-    print(schema)
     question = HumanMessage("Berapa jumlah match result yang bernilai AUTOMATCH")
 
-    query_generation = QueryGeneration()
-    query_generation_chain = query_generation.get_chain()
-
-    result: QueryGenerationOutput = query_generation_chain.invoke({
+    chain = QueryGeneration().get_chain()
+    result: QueryGenerationOutput = chain.invoke({
         "schema": schema,
         "question": question
     })
@@ -132,3 +130,65 @@ def test_query_generation_answer_insert():
     query_lower = result.query.lower()
     assert "insert" not in query_lower
     assert "into" not in query_lower
+
+def test_query_repair_unknown_column():
+    schema = db.get_table_info()
+    question = HumanMessage("Tampilkan nama ibu dan nik dari tabel master")
+    bad_query = "SELECT nama_ibu_kandung, nik FROM master" 
+    error_message = "1054 (42S22): Unknown column 'nama_ibu_kandung' in 'field list'"
+
+    chain = QueryRepair().get_chain()
+    result: QueryRepairOutput = chain.invoke({
+        "schema": schema,
+        "query": bad_query,
+        "error_message": error_message,
+        "question": question
+    })
+
+    print(f"Repaired Query: {result.fixed_query}")
+    query_lower = result.fixed_query.lower()
+    
+    assert "select" in query_lower
+    assert "nama_ibu" in query_lower
+    assert "nama_ibu_kandung" not in query_lower
+
+
+def test_query_repair_syntax_error_group_by():
+    schema = db.get_table_info()
+    question = HumanMessage("Hitung jumlah row_count per status processing")
+    bad_query = "SELECT processing_status, row_count FROM uploaded_files"
+    error_message = "1140 (42000): In aggregated query without GROUP BY, expression #2 of SELECT list contains nonaggregated column"
+
+    chain = QueryRepair().get_chain()
+    result: QueryRepairOutput = chain.invoke({
+        "schema": schema,
+        "query": bad_query,
+        "error_message": error_message,
+        "question": question
+    })
+
+    print(f"Repaired Query: {result.fixed_query}")
+    query_lower = result.fixed_query.lower()
+    
+    assert "group by" in query_lower or "sum(" in query_lower
+
+
+def test_query_repair_rejects_dml():
+    schema = db.get_table_info()
+    question = HumanMessage("Hapus data di tabel master yang nik nya kosong")
+    bad_query = "DELETE FROM master WHERE nik IS NULL"
+    error_message = "1175 (HY000): You are using safe update mode and you tried to update a table without a WHERE that uses a KEY column"
+
+    chain = QueryRepair().get_chain()
+    result: QueryRepairOutput = chain.invoke({
+        "schema": schema,
+        "query": bad_query,
+        "error_message": error_message,
+        "question": question
+    })
+
+    print(f"Repaired Query: {result.fixed_query}")
+    query_lower = result.fixed_query.lower()
+
+    assert "delete" not in query_lower
+    assert "update" not in query_lower

@@ -1,4 +1,4 @@
-from langchain_community.utilities import SQLDatabase
+from langchain_community.utilities.sql_database import SQLDatabase
 from dotenv import load_dotenv
 
 from ingestion.starrocks_connection import DATABASE_URL
