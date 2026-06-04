@@ -111,7 +111,7 @@ class RetrieveRepository:
         """)
 
         with self.engine.connect() as conn:
-            total_rows = conn.execute(count_query).scalar()
+            total_rows = conn.execute(count_query, params).scalar()
             rows = conn.execute(data_query, params).mappings().all()
 
         return [dict(row) for row in rows], total_rows
