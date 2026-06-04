@@ -154,9 +154,9 @@ class MatchingService:
             )
         }
 
-        # [TAMBAHAN] Catat ke Audit Trail
+        
         self.audit_service.log_audit_event(
-            actor_org_id="system_auto", # Karena proses matching tidak terikat ke user spesifik secara langsung
+            actor_org_id="system_auto", 
             action="MATCHING_GRADE_A",
             resource_type="FILE",
             resource_id=file_id,
@@ -336,10 +336,9 @@ class MatchingService:
                 if r["match_result"] == 3
             )
         }
-
-        # [TAMBAHAN] Catat ke Audit Trail
+         
         self.audit_service.log_audit_event(
-            actor_org_id="system_auto", # Karena proses matching tidak terikat ke user spesifik secara langsung
+            actor_org_id="system_auto", 
             action="MATCHING_GRADE_B",
             resource_type="FILE",
             resource_id=file_id,
@@ -532,9 +531,9 @@ class MatchingService:
             )
         }
 
-        # [TAMBAHAN] Catat ke Audit Trail
+         
         self.audit_service.log_audit_event(
-            actor_org_id="system_auto", # Karena proses matching tidak terikat ke user spesifik secara langsung
+            actor_org_id="system_auto", 
             action="MATCHING_GRADE_C",
             resource_type="FILE",
             resource_id=file_id,
@@ -924,9 +923,9 @@ class MatchingService:
                 )
         }
 
-        # [TAMBAHAN] Catat ke Audit Trail
+         
         self.audit_service.log_audit_event(
-            actor_org_id="system_auto", # Karena proses matching tidak terikat ke user spesifik secara langsung
+            actor_org_id="system_auto", 
             action="MATCHING_GRADE_D",
             resource_type="FILE",
             resource_id=file_id,
@@ -1269,9 +1268,9 @@ class MatchingService:
                 )
         }
 
-        # [TAMBAHAN] Catat ke Audit Trail
+        
         self.audit_service.log_audit_event(
-            actor_org_id="system_auto", # Karena proses matching tidak terikat ke user spesifik secara langsung
+            actor_org_id="system_auto", 
             action="MATCHING_GRADE_E",
             resource_type="FILE",
             resource_id=file_id,
