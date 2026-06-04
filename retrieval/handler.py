@@ -24,3 +24,34 @@ class RetrieveDataHandler:
             "has_prev": page > 1,
             "data": data
         }
+    
+
+    def get_synchronized_files(
+        self,
+        page,
+        institution_name,
+        grade,
+        sync_status
+    ):
+        data, total_rows = self.repository.get_synchronized_files(
+            page=page,
+            page_size=self.PAGE_SIZE_SYNCHRONIZED,
+            institution_name=institution_name,
+            grade=grade,
+            sync_status=sync_status
+        )
+
+        total_pages = (
+            total_rows + self.PAGE_SIZE_SYNCHRONIZED - 1
+        ) // self.PAGE_SIZE_SYNCHRONIZED
+
+        return {
+            "page": page,
+            "page_size": self.PAGE_SIZE_SYNCHRONIZED,
+            "total_rows": total_rows,
+            "total_pages": total_pages,
+            "has_prev": page > 1,
+            "has_next": page < total_pages,
+            "data": data
+        }
+    

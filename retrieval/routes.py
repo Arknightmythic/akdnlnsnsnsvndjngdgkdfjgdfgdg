@@ -18,3 +18,22 @@ class RetrieveDataRoutes:
             )
 
             return handler.get_graded_files(page)
+        
+        @self.router.get("/synchronized_files")
+        async def get_synchronized_data(
+            request: Request,
+            page: int = Query(..., ge=1),
+            institution_name: str = Query(...),
+            grade: str = Query(...),
+            sync_status: str = Query(...)
+        ):
+            handler = RetrieveDataHandler(
+                request.app.state.starrocks_engine
+            )
+
+            return handler.get_synchronized_files(
+                page=page,
+                institution_name=institution_name,
+                grade=grade,
+                sync_status=sync_status
+            )
