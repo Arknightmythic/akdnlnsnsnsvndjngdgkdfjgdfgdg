@@ -3,11 +3,11 @@
   "file_id": "558f1a53",
   "reason": "Nama lengkap berbeda (Jayeng Himawan Hidayanto vs Jayeng Tedi Anggriawan), tempat lahir berbeda (Surakarta vs Surabaya), tanggal lahir kosong di institution, nama ibu kosong di institution dan Nama Ibu berbeda (Ani Salahudin vs KOSONG).",
   "timings_seconds": {
-    "sql_get_institution_s": 0.13,
-    "load_parquet_minio_s": 0.64,
-    "sql_load_master_s": 6.63,
-    "duckdb_join_s": 0.23,
-    "llm_reasoning_s": 4.24
+    "sql_get_institution_s": 0.09,
+    "load_parquet_minio_s": 0.95,
+    "sql_load_master_s": 8.93,
+    "duckdb_join_s": 0.05,
+    "llm_reasoning_s": 1.95
   },
   "raw_data": {
     "incoming": {

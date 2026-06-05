@@ -1,18 +1,4 @@
 {
-  "file_id": "558f1a53",
-  "dry_run": true,
-  "processed_count": 1,
-  "updated_count": 0,
-  "data_fetch_time_seconds": 91.31,
-  "total_time_seconds": 93.77,
-  "results": [
-    {
-      "id": 8588130,
-      "reason": "Nama lengkap berbeda (danuja jumari nashiruddin vs danuja paiman fujiati)",
-      "pattern_name": "DRY_RUN_NAMA_BEDA__TGLLAHIR_KOSONG__IBU_KOSONG",
-      "source": "LLM",
-      "llm_time_seconds": 2.45,
-      "total_time_seconds": 2.46
-    }
-  ]
+  "status": "error",
+  "message": "No MANUAL_REVIEW records found in institution table or all already processed"
 }

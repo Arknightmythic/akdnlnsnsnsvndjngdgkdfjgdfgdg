@@ -1,20 +1,20 @@
 === SQL LOGIC TEST: FILE 558f1a53 ===
-Time to fetch institution rows: 0.12s
-Time to fetch Parquet + Master + Join: 92.37s
+Time to fetch institution rows: 0.05s
+Time to fetch Parquet + Master + Join: 7.81s
 Total Joined Rows: 1
 
---- Sampel ke-1 (ID Institution: 8588130) ---
+--- Sampel ke-1 (ID Institution: 8466278) ---
 >> Data Incoming (Dari Parquet):
-   Nama Lengkap   : danuja jumari nashiruddin
-   Tempat Lahir   : cimahi
+   Nama Lengkap   : jayeng himawan hidayanto
+   Tempat Lahir   : surakarta
    Tanggal Lahir  : null
    Jenis Kelamin  : l
    Nama Ibu       : None
 
 >> Data Master (Dari StarRocks):
-   Nama Lengkap   : danuja paiman fujiati
-   Tempat Lahir   : cimahi
-   Tanggal Lahir  : 23-05-2000
+   Nama Lengkap   : jayeng tedi anggriawan
+   Tempat Lahir   : surabaya
+   Tanggal Lahir  : 11-08-1986
    Jenis Kelamin  : l
-   Nama Ibu       : lalita utami
+   Nama Ibu       : ani salahudin
 
