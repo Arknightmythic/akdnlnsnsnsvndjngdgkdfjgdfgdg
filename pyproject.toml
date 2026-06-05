@@ -24,6 +24,8 @@ dependencies = [
     "langchain-ollama>=1.1.0",
     "langchain-openai>=1.2.2",
     "langgraph>=1.2.4",
+    "langgraph-checkpoint-mysql>=3.0.0",
+    "langgraph-checkpoint-sqlite>=3.1.0",
     "minio==7.2.20",
     "numpy==2.4.4",
     "opik>=2.0.56",
