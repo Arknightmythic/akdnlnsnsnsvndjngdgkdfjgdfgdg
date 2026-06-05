@@ -15,7 +15,7 @@ class MatchingService:
         self.scoring_service = ScoringService()
         self.object_storage_service = ObjectStorageService(minio_client, bucket_name)
         self.starrocks_service = StarrocksService(engine)
-
+        self.audit_service = AuditService(engine)
     def get_matching_data(self, file_id, grade):
         uploaded_file = self.starrocks_service.get_uploaded_file(file_id)
 
