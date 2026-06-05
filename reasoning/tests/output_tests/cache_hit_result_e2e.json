@@ -5,167 +5,167 @@
     "processed_count": 20,
     "updated_count": 20,
     "data_fetch_time_seconds": 0.03,
-    "total_time_seconds": 9.39,
+    "total_time_seconds": 13.02,
     "results": [
       {
-        "id": 10490306,
-        "reason": "Nama lengkap berbeda (Siti Natalia Sinaga vs Siti Rina Setiawan), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Julia Salahudin).",
+        "id": 32,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Citra Damanik).",
         "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "LLM",
-        "llm_time_seconds": 1.72,
-        "total_time_seconds": 2.13
+        "llm_time_seconds": 3.75,
+        "total_time_seconds": 4.01
       },
       {
-        "id": 10485544,
-        "reason": "Nama lengkap berbeda (Danuja Jumari Nashiruddin vs Danuja Paiman Fujiati), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Lalita Utami).",
+        "id": 3,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Ajeng Narpati).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.29
+      },
+      {
+        "id": 10,
+        "reason": "Nama lengkap berbeda (Jayeng Himawan Hidayanto vs Jayeng Tedi Anggriawan), tempat lahir berbeda (Surakarta vs Surabaya), tanggal lahir kosong di institution, jenis kelamin kosong di institution, dan nama ibu berbeda (KOSONG vs Ani Salahudin).",
+        "pattern_name": "P002_NAMA_BEDA__TMPTLAHIR_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "LLM",
+        "llm_time_seconds": 1.99,
+        "total_time_seconds": 2.31
+      },
+      {
+        "id": 34,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Lalita Utami).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.32
+      },
+      {
+        "id": 24,
+        "reason": "Nama lengkap berbeda (Wani Puti Usada vs Wani Putra), tempat lahir berbeda (Banjarbaru vs Banjarmasin), tanggal lahir kosong di institution, jenis kelamin kosong di institution, dan nama ibu berbeda (KOSONG vs Ophelia Sirait).",
+        "pattern_name": "P002_NAMA_BEDA__TMPTLAHIR_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.31
+      },
+      {
+        "id": 4,
+        "reason": "Nama lengkap berbeda (Gangsar Jail Widiastuti vs Gangsar Ardianto), tempat lahir berbeda (Tanjungbalai vs Tanjungpinang), tanggal lahir kosong di institution, jenis kelamin kosong di institution, dan nama ibu berbeda (KOSONG vs Nadine Putra).",
+        "pattern_name": "P002_NAMA_BEDA__TMPTLAHIR_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.3
+      },
+      {
+        "id": 31,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Ratih Ardianto).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.31
+      },
+      {
+        "id": 7,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Julia Purnawati).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.28
+      },
+      {
+        "id": 6,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Samiah Kuswoyo).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.31
+      },
+      {
+        "id": 2,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Ana Handayani).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.3
+      },
+      {
+        "id": 5,
+        "reason": "Nama lengkap berbeda (Laras Genta Pradipta vs Laras Thamrin), tempat lahir kosong di institution, tanggal lahir dan jenis kelamin tidak cocok.",
+        "pattern_name": "P003_NAMA_BEDA__TMPTLAHIR_KOSONG__TGLLAHIR_BEDA__GENDER_KOSONG__IBU_KOSONG",
+        "source": "LLM",
+        "llm_time_seconds": 1.26,
+        "total_time_seconds": 1.54
+      },
+      {
+        "id": 35,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Julia Salahudin).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.3
+      },
+      {
+        "id": 16,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Maimunah Utami).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.31
+      },
+      {
+        "id": 14,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Citra Budiman).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.3
+      },
+      {
+        "id": 17,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Bella Puspita).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.3
+      },
+      {
+        "id": 13,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Farah Wasita).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.36
+      },
+      {
+        "id": 18,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Lala Purwanti).",
         "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
         "total_time_seconds": 0.25
       },
       {
-        "id": 10469299,
-        "reason": "Nama lengkap berbeda (Hamima Puspa Hastuti vs Hamima Suci Rahayu), tempat lahir berbeda (Jakarta Barat vs Jakarta Selatan), tanggal lahir kosong di institution, jenis kelamin kosong di institution, dan nama ibu berbeda (KOSONG vs Ajeng Tampubolon).",
-        "pattern_name": "P002_NAMA_BEDA__TMPTLAHIR_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "LLM",
-        "llm_time_seconds": 1.97,
-        "total_time_seconds": 2.16
-      },
-      {
-        "id": 10466101,
-        "reason": "Nama lengkap berbeda (Vino Budiyanto vs Vinsen Budiyanto), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Citra Damanik).",
+        "id": 21,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Devi Lailasari).",
         "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.21
+        "total_time_seconds": 0.3
       },
       {
-        "id": 10460124,
-        "reason": "Nama lengkap berbeda (Darmanto Teddy Kuswandari vs Darmanto Sudiati), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Ratih Ardianto).",
+        "id": 12,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Tiara Yolanda).",
         "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
+        "total_time_seconds": 0.3
       },
       {
-        "id": 10452530,
-        "reason": "Nama lengkap berbeda (Harjo Mahfud Yuniar vs Harjo Harimurti Budiyanto), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Melinda Hutapea).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
-      },
-      {
-        "id": 10452903,
-        "reason": "Nama lengkap berbeda (Lamar Agustina vs Lamar Jais Hutagalung), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Dian Wijayanti).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
-      },
-      {
-        "id": 10448288,
-        "reason": "Nama lengkap berbeda (Natalia Anastasia Sihombing vs Natalia Sihombing), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Shania Hassanah).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.18
-      },
-      {
-        "id": 10443611,
-        "reason": "Nama lengkap berbeda (Wasis Hartati vs Wasis Hidayanto), tempat lahir berbeda (Jakarta Barat vs Jakarta Selatan), tanggal lahir kosong di institution, jenis kelamin kosong di institution, dan nama ibu berbeda (KOSONG vs Ira Sitorus).",
+        "id": 33,
+        "reason": "Nama lengkap berbeda (Hamima Puspa Hastuti vs Hamima Suci Rahayu), tempat lahir berbeda (Kota Administrasi Jakarta Barat vs Kota Administrasi Jakarta Selatan), tanggal lahir kosong di institution, jenis kelamin kosong di institution, dan nama ibu berbeda (KOSONG vs Ajeng Tampubolon).",
         "pattern_name": "P002_NAMA_BEDA__TMPTLAHIR_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.22
-      },
-      {
-        "id": 10446362,
-        "reason": "Nama lengkap berbeda (Zulaikha Napitupulu vs Zulaikha Yuliarti), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Nabila Narpati).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.21
-      },
-      {
-        "id": 10428163,
-        "reason": "Nama lengkap berbeda (Muhammad Danuja Cahyono Putra vs Muhammad Ganda Lasmono Tamba), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Elvina Purwanti).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
-      },
-      {
-        "id": 10400363,
-        "reason": "Nama lengkap berbeda (Bakda Wibisono vs Bakidin Wibisono), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Vera Mayasari).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.21
-      },
-      {
-        "id": 10397897,
-        "reason": "Nama lengkap berbeda (Muhammad Bakiman Anggraini vs Muhammad Widiastuti), tempat lahir kosong di institution, tanggal lahir dan jenis kelamin tidak cocok.",
-        "pattern_name": "P003_NAMA_BEDA__TMPTLAHIR_KOSONG__TGLLAHIR_BEDA__GENDER_KOSONG__IBU_KOSONG",
-        "source": "LLM",
-        "llm_time_seconds": 1.29,
-        "total_time_seconds": 1.59
-      },
-      {
-        "id": 10396844,
-        "reason": "Nama lengkap berbeda (Maman Bajragin Hassanah vs Maman Warta Hasanah), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Olivia Samosir).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.22
-      },
-      {
-        "id": 10400202,
-        "reason": "Nama lengkap berbeda (Carla Puti Budiyanto vs Carla Putra), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Devi Lailasari).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.19
-      },
-      {
-        "id": 10404289,
-        "reason": "Nama lengkap berbeda (Wani Puti Usada vs Wani Putra), tempat lahir berbeda (Jakarta Barat vs Jakarta Selatan), tanggal lahir kosong di institution, jenis kelamin kosong di institution, dan nama ibu berbeda (KOSONG vs Ophelia Sirait).",
-        "pattern_name": "P002_NAMA_BEDA__TMPTLAHIR_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.21
-      },
-      {
-        "id": 10391787,
-        "reason": "Nama lengkap berbeda (Hadi Bancar Astuti vs Hadi Taufan Pratiwi), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Tari Waluyo).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.19
-      },
-      {
-        "id": 10393466,
-        "reason": "Nama lengkap berbeda (Vicky Ilsa Prasetya vs Vicky Calista Haryanti), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Lala Purwanti).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
-      },
-      {
-        "id": 10392505,
-        "reason": "Nama lengkap berbeda (Lasmanto Manullang vs Lasmanto Halim), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Bella Puspita).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.21
-      },
-      {
-        "id": 10382742,
-        "reason": "Nama lengkap berbeda (M. Dadap Adriansyah vs M. Daliman Prakasa), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Oni Hassanah).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.19
+        "total_time_seconds": 0.31
       }
     ]
   },
@@ -175,167 +175,167 @@
     "processed_count": 20,
     "updated_count": 20,
     "data_fetch_time_seconds": 0.03,
-    "total_time_seconds": 4.03,
+    "total_time_seconds": 6.01,
     "results": [
       {
-        "id": 10490306,
-        "reason": "Nama lengkap berbeda (Siti Natalia Sinaga vs Siti Rina Setiawan), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Julia Salahudin).",
+        "id": 8,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Zizi Simbolon).",
         "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.16
+        "total_time_seconds": 0.25
       },
       {
-        "id": 10485544,
-        "reason": "Nama lengkap berbeda (Danuja Jumari Nashiruddin vs Danuja Paiman Fujiati), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Lalita Utami).",
+        "id": 6,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Samiah Kuswoyo).",
         "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
+        "total_time_seconds": 0.3
       },
       {
-        "id": 10466101,
-        "reason": "Nama lengkap berbeda (Vino Budiyanto vs Vinsen Budiyanto), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Citra Damanik).",
+        "id": 2,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Ana Handayani).",
         "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.19
+        "total_time_seconds": 0.31
       },
       {
-        "id": 10469299,
-        "reason": "Nama lengkap berbeda (Hamima Puspa Hastuti vs Hamima Suci Rahayu), tempat lahir berbeda (Jakarta Barat vs Jakarta Selatan), tanggal lahir kosong di institution, jenis kelamin kosong di institution, dan nama ibu berbeda (KOSONG vs Ajeng Tampubolon).",
-        "pattern_name": "P002_NAMA_BEDA__TMPTLAHIR_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
-      },
-      {
-        "id": 10460124,
-        "reason": "Nama lengkap berbeda (Darmanto Teddy Kuswandari vs Darmanto Sudiati), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Ratih Ardianto).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
-      },
-      {
-        "id": 10452903,
-        "reason": "Nama lengkap berbeda (Lamar Agustina vs Lamar Jais Hutagalung), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Dian Wijayanti).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.19
-      },
-      {
-        "id": 10448288,
-        "reason": "Nama lengkap berbeda (Natalia Anastasia Sihombing vs Natalia Sihombing), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Shania Hassanah).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.21
-      },
-      {
-        "id": 10452530,
-        "reason": "Nama lengkap berbeda (Harjo Mahfud Yuniar vs Harjo Harimurti Budiyanto), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Melinda Hutapea).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
-      },
-      {
-        "id": 10443611,
-        "reason": "Nama lengkap berbeda (Wasis Hartati vs Wasis Hidayanto), tempat lahir berbeda (Jakarta Barat vs Jakarta Selatan), tanggal lahir kosong di institution, jenis kelamin kosong di institution, dan nama ibu berbeda (KOSONG vs Ira Sitorus).",
-        "pattern_name": "P002_NAMA_BEDA__TMPTLAHIR_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
-      },
-      {
-        "id": 10446362,
-        "reason": "Nama lengkap berbeda (Zulaikha Napitupulu vs Zulaikha Yuliarti), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Nabila Narpati).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
-      },
-      {
-        "id": 10428163,
-        "reason": "Nama lengkap berbeda (Muhammad Danuja Cahyono Putra vs Muhammad Ganda Lasmono Tamba), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Elvina Purwanti).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.21
-      },
-      {
-        "id": 10396844,
-        "reason": "Nama lengkap berbeda (Maman Bajragin Hassanah vs Maman Warta Hasanah), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Olivia Samosir).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
-      },
-      {
-        "id": 10400363,
-        "reason": "Nama lengkap berbeda (Bakda Wibisono vs Bakidin Wibisono), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Vera Mayasari).",
-        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
-        "source": "CACHE",
-        "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
-      },
-      {
-        "id": 10397897,
-        "reason": "Nama lengkap berbeda (Muhammad Bakiman Anggraini vs Muhammad Widiastuti), tempat lahir kosong di institution, tanggal lahir dan jenis kelamin tidak cocok.",
+        "id": 5,
+        "reason": "Nama lengkap berbeda (Laras Genta Pradipta vs Laras Thamrin), tempat lahir kosong di institution, tanggal lahir dan jenis kelamin tidak cocok.",
         "pattern_name": "P003_NAMA_BEDA__TMPTLAHIR_KOSONG__TGLLAHIR_BEDA__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.19
+        "total_time_seconds": 0.3
       },
       {
-        "id": 10400202,
-        "reason": "Nama lengkap berbeda (Carla Puti Budiyanto vs Carla Putra), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Devi Lailasari).",
+        "id": 35,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Julia Salahudin).",
         "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.21
+        "total_time_seconds": 0.31
       },
       {
-        "id": 10404289,
-        "reason": "Nama lengkap berbeda (Wani Puti Usada vs Wani Putra), tempat lahir berbeda (Jakarta Barat vs Jakarta Selatan), tanggal lahir kosong di institution, jenis kelamin kosong di institution, dan nama ibu berbeda (KOSONG vs Ophelia Sirait).",
+        "id": 32,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Citra Damanik).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.32
+      },
+      {
+        "id": 3,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Ajeng Narpati).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.28
+      },
+      {
+        "id": 16,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Maimunah Utami).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.3
+      },
+      {
+        "id": 14,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Citra Budiman).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.29
+      },
+      {
+        "id": 17,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Bella Puspita).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.31
+      },
+      {
+        "id": 13,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Farah Wasita).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.3
+      },
+      {
+        "id": 18,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Lala Purwanti).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.3
+      },
+      {
+        "id": 21,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Devi Lailasari).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.31
+      },
+      {
+        "id": 12,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Tiara Yolanda).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.29
+      },
+      {
+        "id": 33,
+        "reason": "Nama lengkap berbeda (Hamima Puspa Hastuti vs Hamima Suci Rahayu), tempat lahir berbeda (Kota Administrasi Jakarta Barat vs Kota Administrasi Jakarta Selatan), tanggal lahir kosong di institution, jenis kelamin kosong di institution, dan nama ibu berbeda (KOSONG vs Ajeng Tampubolon).",
         "pattern_name": "P002_NAMA_BEDA__TMPTLAHIR_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.19
+        "total_time_seconds": 0.3
       },
       {
-        "id": 10391787,
-        "reason": "Nama lengkap berbeda (Hadi Bancar Astuti vs Hadi Taufan Pratiwi), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Tari Waluyo).",
+        "id": 30,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Dian Wijayanti).",
         "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
+        "total_time_seconds": 0.3
       },
       {
-        "id": 10393466,
-        "reason": "Nama lengkap berbeda (Vicky Ilsa Prasetya vs Vicky Calista Haryanti), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Lala Purwanti).",
+        "id": 19,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Tari Waluyo).",
         "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
+        "total_time_seconds": 0.3
       },
       {
-        "id": 10392505,
-        "reason": "Nama lengkap berbeda (Lasmanto Manullang vs Lasmanto Halim), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Bella Puspita).",
+        "id": 22,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Olivia Samosir).",
         "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.2
+        "total_time_seconds": 0.3
       },
       {
-        "id": 10382742,
-        "reason": "Nama lengkap berbeda (M. Dadap Adriansyah vs M. Daliman Prakasa), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs P), nama ibu berbeda (kosong vs Oni Hassanah).",
+        "id": 29,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Melinda Hutapea).",
         "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
         "source": "CACHE",
         "llm_time_seconds": 0.0,
-        "total_time_seconds": 0.22
+        "total_time_seconds": 0.31
+      },
+      {
+        "id": 28,
+        "reason": "Nama lengkap berbeda (Vino vs Vinsen), tanggal lahir kosong di institution, jenis kelamin berbeda (kosong vs Laki-laki), nama ibu berbeda (kosong vs Shania Hassanah).",
+        "pattern_name": "P001_NAMA_BEDA__TGLLAHIR_KOSONG__GENDER_KOSONG__IBU_KOSONG",
+        "source": "CACHE",
+        "llm_time_seconds": 0.0,
+        "total_time_seconds": 0.31
       }
     ]
   }

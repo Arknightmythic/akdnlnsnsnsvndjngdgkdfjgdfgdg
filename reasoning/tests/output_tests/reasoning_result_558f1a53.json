@@ -1,4 +1,4 @@
 {
   "status": "error",
-  "message": "No MANUAL_REVIEW records found in institution table or all already processed"
+  "message": "No pending records found in manual_matches for this file_id"
 }
