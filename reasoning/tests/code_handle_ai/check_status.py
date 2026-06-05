@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-def run():
+def check():
     load_dotenv()
     engine = create_engine(
         f"mysql+pymysql://"
@@ -14,13 +14,11 @@ def run():
         f"{os.getenv('STARROCKS_DATABASE')}"
     )
 
-    with engine.begin() as conn:
-        print("Clearing reasoning_patterns cache...")
-        conn.execute(text("TRUNCATE TABLE reasoning_patterns"))
-        
-        print("Resetting all manual_matches COMPLETED status back to PENDING...")
-        conn.execute(text("UPDATE manual_matches SET reasoning_status = 'PENDING', reason = NULL, pattern_name = NULL, reasoning_source = NULL WHERE reasoning_status IN ('COMPLETED', 'FAILED')"))
-        print("Reset done.")
+    with engine.connect() as conn:
+        rows = conn.execute(text("SELECT reasoning_status, count(*) as c FROM manual_matches GROUP BY reasoning_status")).mappings().all()
+        print("Status manual_matches saat ini:")
+        for r in rows:
+            print(f"- {r['reasoning_status']}: {r['c']}")
 
 if __name__ == "__main__":
-    run()
+    check()
