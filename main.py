@@ -17,6 +17,9 @@ from chatbot.routes import ChatbotRoutes
 from dotenv import load_dotenv
 
 load_dotenv()
+from reasoning.routes import ReasoningRoutes
+from reasoning.handler import ReasoningHandler
+from reasoning.scheduler import ReasoningScheduler
 
 class SynchronoAPI:
     def __init__(self):
@@ -52,8 +55,25 @@ class SynchronoAPI:
         app.state.starrocks_engine = engine
         print(">>> StarRocks connection opened")
 
+        app.state.reasoning_handler = ReasoningHandler(
+            app.state.starrocks_engine,
+            app.state.minio_client,
+            app.state.raw_bucket
+        )
+        
+        app.state.reasoning_scheduler = ReasoningScheduler(
+            app.state.starrocks_engine,
+            app.state.minio_client,
+            app.state.raw_bucket,
+            app.state.reasoning_handler
+        )
+        
+        if os.getenv("REASONING_AUTOSTART_SCHEDULER", "false").lower() == "true":
+            app.state.reasoning_scheduler.start()
+
         yield
 
+        app.state.reasoning_scheduler.stop()
         engine.dispose()
         print(">>> StarRocks connection closed")
         print(">>> Shutting down ...")
@@ -74,6 +94,9 @@ class SynchronoAPI:
         chatbot_routes = ChatbotRoutes()
         self.app.include_router(chatbot_routes.router, prefix="/agent", tags=["Chatbot"])
     
+        reasoning_routes = ReasoningRoutes()
+        self.app.include_router(reasoning_routes.router, prefix="/reasoning")
+
     def run(self):
         uvicorn.run(self.app,host="0.0.0.0",port=9191)
 
