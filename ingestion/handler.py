@@ -34,26 +34,22 @@ class UploadFileHandler:
             timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             unique_id = uuid.uuid4().hex[:8]
 
-            object_name = (
-                # f"{os.getenv("INCOMING_FOLDER_PATH")}/"
-                f'{os.getenv("INCOMING_FOLDER_PATH")}/'
-                f"{timestamp}_{unique_id}_{file.filename}"
-            )
-
             print("putting object...")
             content = await file.read()
 
-            lf = pl.scan_csv(io.BytesIO(content))
+            # Parse CSV once into a DataFrame
+            df = pl.read_csv(io.BytesIO(content))
+            row_count = len(df)
 
             # Add column id
-            lf = lf.with_row_index(name="id", offset=1)
+            df = df.with_row_index(name="id", offset=1)
 
+            # Convert to Parquet once in memory
             parquet_buffer = io.BytesIO()
-            lf.sink_parquet(parquet_buffer)
+            df.write_parquet(parquet_buffer)
             parquet_buffer.seek(0)
 
             parquet_object_name = (
-                # f"{os.getenv("CURATED_BUCKET_NAME")}/"
                 f'{os.getenv("CURATED_BUCKET_NAME")}/'
                 f"{timestamp}_{unique_id}_{file.filename.replace('.csv', '.parquet')}"
             )
@@ -64,7 +60,7 @@ class UploadFileHandler:
                 data=parquet_buffer,
                 length=parquet_buffer.getbuffer().nbytes,
                 part_size=10 * 1024 * 1024,
-                content_type="text/csv"
+                content_type="application/x-parquet"
             )
 
             print("putting metadata...")
@@ -75,7 +71,6 @@ class UploadFileHandler:
             })
 
             try:
-                row_count = lf.select(pl.len()).collect().item()
                 self.metadata_service.create_uploaded_file(
                     file_id=unique_id,
                     institution_name=institution_name,
@@ -84,17 +79,17 @@ class UploadFileHandler:
                     row_count=row_count
                 )
             except Exception as e:
-                print(f"Metadata creation fails for {object_name}: {e}\n")
-
+                print(f"Metadata creation fails for {parquet_object_name}: {e}\n")
 
             try:
+                # Use df.lazy() so the grader doesn't re-parse the data
                 self.grader_service.grade_file(
                     file_id=unique_id,
-                    lf=lf,
+                    lf=df.lazy(),
                     minio_path=parquet_object_name
                 )
             except Exception as e:
-                print(f"Grading fails for {object_name}: {e}\n")
+                print(f"Grading fails for {parquet_object_name}: {e}\n")
 
         print("Files uploaded!")
         return {
