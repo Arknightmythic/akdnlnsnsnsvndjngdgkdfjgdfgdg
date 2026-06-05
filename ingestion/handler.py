@@ -4,7 +4,7 @@ import os
 import json
 from datetime import datetime, UTC
 from typing import List
-
+import time
 from dotenv import load_dotenv
 from fastapi import UploadFile, File, HTTPException
 import polars as pl
@@ -24,6 +24,7 @@ class UploadFileHandler:
         print("Upload Handler Initialized")
 
     async def upload_file_stream(self, institution_name: str, files: List[UploadFile]):
+        start_time = time.perf_counter()
         # Tambahkan parameter opsional 'filename'
         def emit_event(step: str, message: str, filename: str = None):
             payload = {
@@ -105,22 +106,26 @@ class UploadFileHandler:
                     minio_path=parquet_object_name
                 )
 
+                latency_ms = int((time.perf_counter() - start_time) * 1000)
                 self.audit_service.log_audit_event(
                     actor_org_id=institution_name,
                     action="UPLOAD_AND_GRADE_FILE",
                     resource_type="FILE",
                     resource_id=unique_id,
                     result="SUCCESS",
+                    latency_ms=latency_ms,
                     after_state=json.dumps({"filename": file.filename, "rows": row_count})
                 )
             except Exception as e:
 
+                latency_ms = int((time.perf_counter() - start_time) * 1000)
                 self.audit_service.log_audit_event(
                     actor_org_id=institution_name,
                     action="UPLOAD_AND_GRADE_FILE",
                     resource_type="FILE",
                     resource_id=unique_id,
                     result="FAILED",
+                    latency_ms=latency_ms,
                     after_state=json.dumps({"error": str(e)})
                 )
                 

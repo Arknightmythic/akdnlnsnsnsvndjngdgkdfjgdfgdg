@@ -3,7 +3,7 @@ import json
 from io import BytesIO
 import duckdb
 import polars as pl
-
+import time
 from sqlalchemy import text
 from .string_similarity import ScoringService
 from .minio_fetching_service import ObjectStorageService
@@ -38,6 +38,7 @@ class MatchingService:
         return uploaded_file, incoming_df, master_df
 
     def process_grade_a(self, file_id):
+        start_time = time.perf_counter()
         uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, 1)
 
         start = time.perf_counter()
@@ -154,20 +155,18 @@ class MatchingService:
             )
         }
 
-        
+        latency_ms = int((time.perf_counter() - start_time) * 1000)
         self.audit_service.log_audit_event(
             actor_org_id="system_auto", 
             action="MATCHING_GRADE_A",
             resource_type="FILE",
             resource_id=file_id,
             result="SUCCESS",
+            latency_ms=latency_ms,
             after_state=json.dumps(response_data)
         )
 
         return response_data
-
-
-
 
     def count_missing_attributes(self, row):
 
@@ -191,8 +190,8 @@ class MatchingService:
         return 3
 
     def process_grade_b(self, file_id):
+        start_time = time.perf_counter()
         uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, 2)
-
         self.starrocks_service.set_sync_status_in_progress(file_id)
         start = time.perf_counter()
         con = duckdb.connect()
@@ -336,13 +335,14 @@ class MatchingService:
                 if r["match_result"] == 3
             )
         }
-         
+        latency_ms = int((time.perf_counter() - start_time) * 1000) 
         self.audit_service.log_audit_event(
             actor_org_id="system_auto", 
             action="MATCHING_GRADE_B",
             resource_type="FILE",
             resource_id=file_id,
             result="SUCCESS",
+            latency_ms=latency_ms,
             after_state=json.dumps(response_data)
         )
 
@@ -350,8 +350,8 @@ class MatchingService:
 
     
     def process_grade_c(self, file_id):
+        start_time = time.perf_counter()
         uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, 3)
-
         self.starrocks_service.set_sync_status_in_progress(file_id)
         start = time.perf_counter()
         con = duckdb.connect()
@@ -531,21 +531,22 @@ class MatchingService:
             )
         }
 
-         
+        latency_ms = int((time.perf_counter() - start_time) * 1000) 
         self.audit_service.log_audit_event(
             actor_org_id="system_auto", 
             action="MATCHING_GRADE_C",
             resource_type="FILE",
             resource_id=file_id,
             result="SUCCESS",
+            latency_ms=latency_ms,
             after_state=json.dumps(response_data)
         )
 
         return response_data
     
     def process_grade_d(self, file_id):
+        start_time = time.perf_counter()
         uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, 4)
-
         self.starrocks_service.set_sync_status_in_progress(file_id)
         start = time.perf_counter()
         con = duckdb.connect()
@@ -923,21 +924,22 @@ class MatchingService:
                 )
         }
 
-         
+        latency_ms = int((time.perf_counter() - start_time) * 1000) 
         self.audit_service.log_audit_event(
             actor_org_id="system_auto", 
             action="MATCHING_GRADE_D",
             resource_type="FILE",
             resource_id=file_id,
             result="SUCCESS",
+            latency_ms=latency_ms,
             after_state=json.dumps(response_data)
         )
 
         return response_data
 
     def process_grade_e(self, file_id):
+        start_time = time.perf_counter()
         uploaded_file, incoming_df, master_df = self.get_matching_data(file_id, 5)
-
         self.starrocks_service.set_sync_status_in_progress(file_id)
         start = time.perf_counter()
         con = duckdb.connect()
@@ -1268,13 +1270,14 @@ class MatchingService:
                 )
         }
 
-        
+        latency_ms = int((time.perf_counter() - start_time) * 1000)
         self.audit_service.log_audit_event(
             actor_org_id="system_auto", 
             action="MATCHING_GRADE_E",
             resource_type="FILE",
             resource_id=file_id,
             result="SUCCESS",
+            latency_ms=latency_ms,
             after_state=json.dumps(response_data)
         )
 
