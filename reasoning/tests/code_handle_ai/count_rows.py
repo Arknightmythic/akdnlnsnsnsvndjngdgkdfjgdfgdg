@@ -12,5 +12,5 @@ engine = create_engine(
     f"{os.getenv('STARROCKS_DATABASE')}"
 )
 with engine.connect() as conn:
-    c = conn.execute(text("SELECT match_result FROM institution WHERE id=8466278")).scalar()
-    print(f"Match Result for 8466278: {c}")
+    c = conn.execute(text("SELECT reason_template FROM reasoning_patterns LIMIT 1")).scalar()
+    print(f"Template: {c}")
