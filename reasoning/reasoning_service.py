@@ -5,8 +5,8 @@ import time
 from datetime import date, datetime
 from dotenv import load_dotenv
 
-import duckdb
-import polars as pl
+import duckdb  # To be removed safely soon if matching_service drops it
+import polars as pl # To be removed safely soon
 from sqlalchemy import text
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -19,24 +19,37 @@ from .pattern_detector import PatternDetector
 load_dotenv()
 
 class ReasoningService:
-    def __init__(self, engine, minio_client, bucket_name):
+    def __init__(self, engine):
         self.engine = engine
-        self.matching_service = MatchingService(engine, minio_client, bucket_name)
         self.pattern_detector = PatternDetector()
         
         # Ambil konfigurasi dari .env
+        llm_provider = os.getenv("LLM_PROVIDER", "ollama").lower()
         openai_base_url = os.getenv("MODEL_BASE_URL", "http://localhost:port")
         if not openai_base_url.endswith("/v1"):
             openai_base_url = openai_base_url.rstrip("/") + "/v1"
             
-        openai_api_key = os.getenv("OPENAI_API_KEY", "ollama")
-        
-        self.llm = ChatOpenAI(
-            model="llama3.1:8b-instruct-q4_K_M",
-            temperature=0.1,
-            base_url=openai_base_url,
-            api_key=openai_api_key
-        ).with_structured_output(ReasoningOutput)
+        if llm_provider == "vllm":
+            # Konfigurasi untuk vLLM (model name disesuaikan dengan yang ada di vLLM)
+            vllm_model_name = os.getenv("VLLM_MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
+            openai_api_key = os.getenv("OPENAI_API_KEY", "EMPTY") # vLLM typically doesn't need a real key unless configured
+            self.llm = ChatOpenAI(
+                model=vllm_model_name,
+                temperature=0.1,
+                base_url=openai_base_url,
+                api_key=openai_api_key,
+                max_tokens=500
+            ).with_structured_output(ReasoningOutput)
+        else:
+            # Default fallback ke Ollama
+            openai_api_key = os.getenv("OPENAI_API_KEY", "ollama")
+            ollama_model_name = os.getenv("OLLAMA_MODEL_NAME", "llama3.1:8b-instruct-q4_K_M")
+            self.llm = ChatOpenAI(
+                model=ollama_model_name,
+                temperature=0.1,
+                base_url=openai_base_url,
+                api_key=openai_api_key
+            ).with_structured_output(ReasoningOutput)
 
         self.system_prompt = SYSTEM_PROMPT
 
@@ -145,53 +158,38 @@ class ReasoningService:
             return conn.execute(query, {"file_id": file_id}).mappings().all()
 
     def build_comparison_pairs(self, file_id: str, limit: int = None):
-        institution_rows = self.get_manual_review_rows(file_id, limit=limit)
-        if not institution_rows:
+        # Langsung gabung 3 tabel via SQL engine! Tidak perlu download parquet dari MinIO.
+        query_str = """
+            SELECT 
+                inst.id as id,
+                mm.nama_incoming AS nama_lengkap,
+                mm.tempat_lahir_incoming AS tempat_lahir,
+                mm.tanggal_lahir_incoming AS tanggal_lahir,
+                mm.jenis_kelamin_incoming AS jenis_kelamin,
+                mm.nama_ibu_incoming AS nama_ibu,
+                m.nama_lengkap AS master_nama_lengkap,
+                m.tempat_lahir AS master_tempat_lahir,
+                m.tanggal_lahir AS master_tanggal_lahir,
+                m.jenis_kelamin AS master_jenis_kelamin,
+                m.nama_ibu AS master_nama_ibu
+            FROM institution inst
+            JOIN manual_matches mm ON inst.file_id = mm.file_id AND inst.id_incoming = mm.id_incoming
+            JOIN master m ON inst.nik_master = m.nik
+            WHERE inst.file_id = :file_id 
+              AND inst.match_result = 2 
+              AND inst.reasoning_source IS NULL
+            ORDER BY inst.inserted_date DESC
+        """
+        if limit is not None:
+            query_str += f" LIMIT {limit}"
+            
+        with self.engine.connect() as conn:
+            rows = conn.execute(text(query_str), {"file_id": file_id}).mappings().all()
+            
+        if not rows:
             return None, "No MANUAL_REVIEW records found in institution table or all already processed"
             
-        uploaded_file = self.matching_service.get_uploaded_file(file_id)
-        if not uploaded_file:
-            return None, f"No uploaded_files record found for file_id={file_id}"
-            
-        incoming_df = self.matching_service.load_parquet_from_minio(uploaded_file["minio_path"])
-        master_df = self.matching_service.fetch_master_dataset()
-        inst_df = pl.DataFrame([dict(row) for row in institution_rows])
-        
-        # Normalisasi grade karena skema DB diupdate menjadi foreign key integer
-        grade_val = str(uploaded_file.get("grade", "")).strip().upper()
-        grade_map = {"1": "A", "2": "B", "3": "C", "4": "D", "5": "E"}
-        grade = grade_map.get(grade_val, grade_val)
-        
-        con = duckdb.connect()
-        con.register("incoming_df", incoming_df.to_arrow())
-        con.register("master_df", master_df.to_arrow())
-        con.register("inst_df", inst_df.to_arrow())
-        
-        # Grade C dan D tidak punya NIK, jadi nik_incoming di tabel institution sebenarnya adalah id dari parquet
-        incoming_join_col = "id" if grade in ["C", "D"] else "nik"
-        
-        joined_df = con.execute(f"""
-            SELECT 
-                inst.id,
-                i.nama_clean AS nama_lengkap,
-                i.tempat_lahir_clean AS tempat_lahir,
-                i.tanggal_lahir_clean AS tanggal_lahir,
-                i.jenis_kelamin_clean AS jenis_kelamin,
-                i.nama_ibu_clean AS nama_ibu,
-                m.nama_master_clean AS master_nama_lengkap,
-                m.tempat_lahir_master_clean AS master_tempat_lahir,
-                m.tanggal_lahir_master_clean AS master_tanggal_lahir,
-                m.jenis_kelamin_master_clean AS master_jenis_kelamin,
-                m.nama_ibu_master_clean AS master_nama_ibu
-            FROM inst_df inst
-            JOIN incoming_df i ON inst.nik_incoming = i.{incoming_join_col}
-            JOIN master_df m ON inst.nik_master = m.nik
-        """).pl()
-        
-        if joined_df.height == 0:
-            return None, "Joined dataframe is empty"
-            
-        return joined_df, None
+        return [dict(row) for row in rows], None
 
     def process_reasoning(self, file_id: str, dry_run: bool = False, limit: int = None):
         start_time_total = time.perf_counter()
@@ -205,10 +203,10 @@ class ReasoningService:
             
         results = []
         updated_count = 0
-        total_rows = joined_df.height
+        total_rows = len(joined_df)
         
         # Proses satu per satu
-        for idx, row in enumerate(joined_df.iter_rows(named=True)):
+        for idx, row in enumerate(joined_df):
             if limit is not None and idx >= limit:
                 break
                 

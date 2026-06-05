@@ -1,10 +1,10 @@
 === CHECK MANUAL REVIEW DATA ===
-Total MANUAL_REVIEW rows: 68
+Total MANUAL_REVIEW rows: 1
 
 Sample MANUAL_REVIEW row:
-{'id': 6604230, 'id_incoming': '104249', 'nik_master': '7211704309007624', 'file_id': '558f1a53', 'match_score': 89.75, 'match_result': 2}
+{'id': 8466278, 'id_incoming': '63640', 'nik_master': '1112201108860389', 'file_id': '558f1a53', 'match_score': 86.26, 'match_result': 2}
 
 Uploaded file record for 558f1a53:
-{'file_id': '558f1a53', 'original_filename': 'data_dukcapil_gradeD.csv', 'institution_name': 'Entity_D', 'minio_path': 'curated/20260602_034826_558f1a53_data_dukcapil_gradeD.parquet', 'upload_timestamp': datetime.datetime(2026, 6, 2, 3, 48, 34), 'row_count': 200020, 'grading_time_ms': 120, 'matching_time_ms': 30617, 'is_sync': 1, 'sync_status': 2, 'processing_status': 2, 'grade': 4, 'reasoning_status': 'PENDING'}
+{'file_id': '558f1a53', 'original_filename': 'data_dukcapil_gradeD.csv', 'institution_name': 'Entity_D', 'minio_path': 'curated/20260602_034826_558f1a53_data_dukcapil_gradeD.parquet', 'upload_timestamp': datetime.datetime(2026, 6, 2, 3, 48, 34), 'row_count': 200020, 'grading_time_ms': 120, 'matching_time_ms': 30617, 'is_sync': 1, 'sync_status': 2, 'processing_status': 2, 'grade': 4, 'reasoning_status': 'COMPLETED'}
 
 Minio path: curated/20260602_034826_558f1a53_data_dukcapil_gradeD.parquet

@@ -9,7 +9,7 @@ engine = create_engine(
 )
 
 with engine.connect() as conn:
-    res = conn.execute(text("DESCRIBE manual_matches")).fetchall()
-    print("TOTAL COLUMNS:", len(res))
+    print("=== manual_matches ===")
+    res = conn.execute(text("SELECT file_id, id_incoming FROM manual_matches LIMIT 5")).fetchall()
     for r in res:
-        print(r[0])
+        print(r)

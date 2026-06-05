@@ -17,19 +17,13 @@ class ReasoningRoutes:
             handler = request.app.state.reasoning_handler
             return handler.test_reasoning(file_id)
 
-        @self.router.post("/scheduler/start")
-        def start_scheduler(request: Request):
-            scheduler = request.app.state.reasoning_scheduler
-            scheduler.start()
-            return {"message": "Scheduler started", "status": scheduler.status()}
+        @self.router.post("/enqueue/")
+        def enqueue_reasoning(request: Request, file_id: str = Query(..., description="File ID to enqueue for reasoning")):
+            handler = request.app.state.reasoning_handler
+            return handler.enqueue_reasoning(file_id)
 
-        @self.router.post("/scheduler/stop")
-        def stop_scheduler(request: Request):
-            scheduler = request.app.state.reasoning_scheduler
-            scheduler.stop()
-            return {"message": "Scheduler stopped", "status": scheduler.status()}
-
-        @self.router.get("/scheduler/status")
-        def scheduler_status(request: Request):
-            scheduler = request.app.state.reasoning_scheduler
-            return scheduler.status()
+        @self.router.get("/task/{task_id}")
+        def get_task_status(task_id: str):
+            from reasoning.celery_app import celery_app
+            result = celery_app.AsyncResult(task_id)
+            return {"task_id": task_id, "status": result.status, "result": str(result.result)}
