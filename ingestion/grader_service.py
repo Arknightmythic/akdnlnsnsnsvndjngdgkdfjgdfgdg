@@ -13,7 +13,7 @@ class GraderService:
     def _grade_dataframe(self, lf: pl.LazyFrame, file_id, minio_path) -> None:
         try:
             target_columns = {"nik", "nama", "tempat_lahir", "tanggal_lahir", "jenis_kelamin", "nama_ibu"}
-            lf_columns_set = set(lf.columns)
+            lf_columns_set = set(lf.collect_schema().names())
             
             # Build expressions for existing target columns only
             expressions = [pl.len().alias("total_rows")]
@@ -58,7 +58,7 @@ class GraderService:
             results["nik_len16"] = pcts.get("nik_len16", 0.0)
             results["nik_not_len16_count"] = pcts.get("nik_not_len16_count", 0)
 
-            # --- Grading logic (checked in order: A, B, C, D, else E) ---
+            # Grading logic (checked in order: A, B, C, D, else E)
             grade = Grade.E.value
 
             nik_exists = results["nik_exists"]
@@ -100,25 +100,7 @@ class GraderService:
                 ):
                     grade = Grade.D.value
 
-            process = Process.GRADED.value
-            record = {
-                "file_id": file_id,
-                "upload_timestamp": datetime.now(timezone.utc),
-                "processing_status": int(process),
-                "grade": int(grade),
-            }
-
-            insert_query = text("""
-                UPDATE uploaded_files 
-                SET 
-                    grade = :grade,
-                    processing_status = :processing_status,
-                    upload_timestamp = :upload_timestamp
-                WHERE file_id = :file_id
-            """)
-
-            with self.engine.begin() as conn:
-                conn.execute(insert_query, record)
+            return grade
 
         except Exception as e:
             print(f"Failed grading file for {minio_path}: {str(e)}")
@@ -127,14 +109,29 @@ class GraderService:
     def grade_file(self, file_id, lf, minio_path):
         try:
             grading_start = time.perf_counter()
-            self._grade_dataframe(lf, file_id, minio_path)
+            grade = self._grade_dataframe(lf, file_id, minio_path)
             grading_time = int((time.perf_counter() - grading_start) * 1000) # Turn it into ms
 
+            record = {
+                "file_id": file_id,
+                "grade": int(grade),
+                "processing_status": int(Process.GRADED.value),
+                "upload_timestamp": datetime.now(timezone.utc),
+                "grading_time_ms": grading_time,
+            }
+
+            query = text("""
+                UPDATE uploaded_files 
+                SET 
+                    grade = :grade,
+                    processing_status = :processing_status,
+                    upload_timestamp = :upload_timestamp,
+                    grading_time_ms = :grading_time_ms
+                WHERE file_id = :file_id
+            """)
+
             with self.engine.begin() as conn:
-                conn.execute(
-                    text("UPDATE uploaded_files SET grading_time_ms = :grading_time_ms WHERE file_id = :file_id"),
-                    {"grading_time_ms": grading_time, "file_id": file_id}
-                )
+                conn.execute(query, record)
         except Exception as e:
             print(f"Failed grading file: {minio_path}: {str(e)}")
             raise
