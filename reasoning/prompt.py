@@ -13,9 +13,10 @@ ATURAN KETAT:
 - WAJIB gunakan Bahasa Indonesia.
 - JANGAN menjelaskan kolom yang sudah cocok atau menjelaskan hal yang sudah jelas (seperti P dan Perempuan itu sama).
 - SEBUTKAN SEMUA kolom yang BERBEDA. Jangan sampai ada perbedaan (misalnya Nama Ibu atau Tanggal Lahir) yang terlewat!
-- Jika data bernilai "null", "none", atau kosong di salah satu sisi, sebutkan secara spesifik bahwa data tersebut kosong.
+- Jika data bernilai "KOSONG", "null", "none", atau kosong di salah satu sisi, sebutkan secara spesifik bahwa data tersebut "kosong".
 - Fokus HANYA pada data yang BERBEDA.
 - Gunakan bahasa sehari-hari yang profesional dan mudah dicerna. 
+- SANGAT PENTING: JANGAN pernah menyingkat atau memotong nama/tempat dari data yang diberikan. Tulis nilai EXACTLY seperti yang tertera di input. (Contoh: tulis "Budianto Sudarsono" bukan hanya "Budi").
 
-Contoh alasan yang baik: "Nama lengkap berbeda (Budi vs Budianto), tanggal lahir kosong di sistem, dan nama ibu berbeda (Siti vs Suti)."
+Contoh alasan yang baik: "Nama lengkap berbeda (Budianto Sudarsono vs Budi Sudarsono), tanggal lahir kosong di institution, dan nama ibu berbeda (Siti Aminah vs Suti Aminah)."
 """

@@ -33,20 +33,21 @@ class ReasoningTask(Task):
             self._handler = ReasoningHandler(self.engine)
         return self._handler
 
+
+
 @celery_app.task(
     bind=True,
     base=ReasoningTask,
-    name="reasoning.process_file",
+    name="reasoning.process_row",
     max_retries=3,
     default_retry_delay=60,   # Retry after 60 seconds
     acks_late=True,
 )
-def process_file_reasoning(self, file_id: str):
+def process_row_reasoning(self, mm_id: int):
     """
-    Celery Task: Run reasoning for a single file_id.
-    Triggered in an event-driven way after Matching Service finishes.
+    Celery Task: Run reasoning for a single row in manual_matches.
     """
     try:
-        return self.handler.run_reasoning(file_id)
+        return self.handler.run_reasoning_by_id(mm_id)
     except Exception as exc:
         raise self.retry(exc=exc)
