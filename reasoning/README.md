@@ -10,22 +10,20 @@ Sistem menggunakan **Celery + Redis** untuk pemrosesan asinkron. Ketika proses *
 
 ```mermaid
 flowchart TD
-    A[Matching Service Selesai] -->|process_file_reasoning.delay()| B[Redis Broker]
+    A[Matching Service Selesai] -->|"process_row_reasoning.delay(mm_id)"| B[Redis Broker]
     B --> C{Worker Available?}
     C -->|Ya| D[Celery Worker Pickup Task]
     C -->|Tidak| E[Task Queued in Redis]
     E --> D
     D --> F[Set reasoning_status = PROCESSING]
-    F --> G[Load Data MANUAL_REVIEW]
+    F --> G[Load 1 Baris Data via UNION JOIN]
     G --> H{Pola ada di Cache?}
     H -->|CACHE HIT| I[_fill_template]
     H -->|CACHE MISS| J[Call LLM API]
     J --> K[Save Pattern ke DB]
     K --> I
-    I --> L[UPDATE institution.reason]
-    L --> M{Semua baris selesai?}
-    M -->|Tidak| H
-    M -->|Ya| N[Set reasoning_status = COMPLETED]
+    I --> L[UPDATE manual_matches reason]
+    L --> N[Set reasoning_status = COMPLETED]
     N --> O[Task Done]
 ```
 
@@ -71,10 +69,10 @@ Jalankan Celery Worker di *terminal session* atau *process manager* terpisah (mi
 # Aktifkan virtual environment
 .venv\Scripts\activate
 
-# Jalankan worker
-celery -A reasoning.celery_app worker --loglevel=info --concurrency=4
+# Jalankan worker dengan pool threads
+uv run celery -A reasoning.celery_app worker --pool=threads --concurrency=3 --loglevel=info
 ```
-*Gunakan `--concurrency=4` (atau lebih) untuk memproses 4 antrean file secara bersamaan. Sesuaikan dengan kapasitas VRAM GPU Anda.*
+*Gunakan `--concurrency=3` (atau lebih) untuk memproses 3 antrean baris secara bersamaan. Arsitektur terbaru ini menggunakan Row-Level Parallelism di mana 1 baris di tabel `manual_matches` = 1 task mandiri di Celery.*
 
 ---
 
@@ -84,13 +82,16 @@ Saat ini, `MatchingService` dan `ReasoningService` berada di dalam satu *codebas
 
 1. **Pisahkan Repo**: Ekstrak folder `reasoning/` ke dalam repository baru.
 2. **Koneksi Redis**: Pastikan *Microservice Matching* dan *Microservice Reasoning* menunjuk ke URL Redis yang sama.
-3. **Ubah Cara Trigger**: Di *Matching Service*, Anda tidak bisa meng-*import* `process_file_reasoning`. Gantilah trigger di `processing/handler.py` menjadi menggunakan `send_task`:
+3. **Ubah Cara Trigger**: Di *Matching Service*, Anda tidak bisa meng-*import* `process_row_reasoning`. Gantilah *trigger* di `processing/handler.py` menjadi perulangan yang menggunakan `send_task` per ID baris:
 
 ```python
 # Di dalam codebase Matching Service:
 from celery import Celery
 
 celery_client = Celery(broker="redis://...")
-celery_client.send_task("reasoning.process_file", args=[file_id])
+
+# Looping id dari manual_matches
+for mm_id in list_of_pending_ids:
+    celery_client.send_task("reasoning.process_row", args=[mm_id])
 ```
 Dengan cara ini, `MatchingService` sama sekali tidak perlu mengetahui detail kode dari `ReasoningService`. Keduanya berkomunikasi hanya melalui pesan *(message passing)* di Redis!
