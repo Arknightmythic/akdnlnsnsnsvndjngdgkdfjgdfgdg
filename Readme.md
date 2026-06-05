@@ -20,11 +20,11 @@ Sistem ini menggunakan **StarRocks** sebagai database analitik utama, **MinIO** 
 
 Pastikan layanan berikut sudah berjalan dan dapat diakses sebelum memulai:
 
-| Layanan | Keterangan |
-|---|---|
-| **StarRocks** | Database analitik utama (MySQL Dialect) |
-| **MinIO** | Object storage kompatibel S3 |
-| **Redis** | Broker & backend untuk Celery |
+| Layanan        | Keterangan                                       |
+| -------------- | ------------------------------------------------ |
+| **StarRocks**  | Database analitik utama (MySQL Dialect)          |
+| **MinIO**      | Object storage kompatibel S3                     |
+| **Redis**      | Broker & backend untuk Celery                    |
 | **Python 3.x** | Direkomendasikan menggunakan Virtual Environment |
 
 ---
@@ -88,7 +88,7 @@ Server berjalan di: `http://localhost:9191`
 
 ---
 
-### Terminal 2 — Celery Worker
+### Terminal 2 — Celery Worker audit retention
 
 Mengeksekusi tugas berat di background seperti sinkronisasi data dan retention log.
 
