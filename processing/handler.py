@@ -22,24 +22,25 @@ class MatchFileHandler:
 
         grade = uploaded_file["grade"]
 
-        if grade == "A":
+        if grade == 1:
             result = self.matching_service.process_grade_a(file_id)
-        elif grade == "B":
+        elif grade == 2:
             result = self.matching_service.process_grade_b(file_id)
-        elif grade == "C":
+        elif grade == 3:
             result = self.matching_service.process_grade_c(file_id)
-        elif grade == "D":
+        elif grade == 4:
             result = self.matching_service.process_grade_d(file_id)
-        elif grade == "E":
+        elif grade == 5:
             result = self.matching_service.process_grade_e(file_id)
         else:
             raise Exception(f"Unsupported grade: {grade}")
-        # Trigger Reasoning Celery Task as a background event
+
+        # Panggil orchestrator Celery dari modul AI Reasoning
         try:
-            from reasoning.tasks import process_file_reasoning
-            process_file_reasoning.delay(file_id)
-            print(f"Enqueued reasoning task for {file_id}")
+            from reasoning.tasks import trigger_rows_for_file
+            trigger_rows_for_file.delay(file_id)
+            print(f"Enqueued reasoning orchestrator for file {file_id}")
         except Exception as e:
-            print(f"Failed to enqueue reasoning task for {file_id}: {e}")
+            print(f"Failed to enqueue reasoning orchestrator for {file_id}: {e}")
 
         return result

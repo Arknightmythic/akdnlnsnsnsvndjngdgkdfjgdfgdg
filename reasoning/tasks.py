@@ -38,6 +38,33 @@ class ReasoningTask(Task):
 @celery_app.task(
     bind=True,
     base=ReasoningTask,
+    name="reasoning.trigger_rows_for_file",
+    acks_late=True,
+)
+def trigger_rows_for_file(self, file_id: str):
+    """
+    Orchestrator Task: Query DB for pending rows and fan-out to process_row.
+    Berjalan di background agar API FastAPI tidak hang saat meloop jutaan data.
+    """
+    from sqlalchemy import text
+    try:
+        with self.engine.connect() as conn:
+            rows = conn.execute(
+                text("SELECT id FROM manual_matches WHERE file_id = :f AND reasoning_status = 'PENDING'"),
+                {"f": file_id}
+            ).fetchall()
+            
+        for row in rows:
+            process_row_reasoning.delay(row[0])
+            
+        return {"status": "success", "file_id": file_id, "queued": len(rows)}
+    except Exception as exc:
+        raise self.retry(exc=exc)
+
+
+@celery_app.task(
+    bind=True,
+    base=ReasoningTask,
     name="reasoning.process_row",
     max_retries=3,
     default_retry_delay=60,   # Retry after 60 seconds
