@@ -4,13 +4,13 @@
     "source": "LLM",
     "institution_id": 8466278,
     "file_id": "558f1a53",
-    "reason": "Nama lengkap berbeda (Jayeng Himawan Hidayanto vs Jayeng Tedi Anggriawan), tempat lahir berbeda (Surakarta vs Surabaya), tanggal lahir kosong di institution, nama ibu kosong di institution dan berbeda dengan master.",
+    "reason": "Nama lengkap berbeda (Jayeng Himawan Hidayanto vs Jayeng Tedi Anggriawan), tempat lahir berbeda (Surakarta vs Surabaya), tanggal lahir kosong di institution, nama ibu kosong di institution dan Nama Ibu berbeda (Ani Salahudin vs KOSONG).",
     "timings_seconds": {
-      "sql_get_institution_s": 0.06,
-      "load_parquet_minio_s": 0.61,
-      "sql_load_master_s": 15.04,
-      "duckdb_join_s": 0.2,
-      "llm_reasoning_s": 2.04
+      "sql_get_institution_s": 0.02,
+      "load_parquet_minio_s": 6.23,
+      "sql_load_master_s": 84.03,
+      "duckdb_join_s": 0.25,
+      "llm_reasoning_s": 4.27
     },
     "raw_data": {
       "incoming": {
@@ -32,11 +32,11 @@
     "source": "CACHE",
     "institution_id": 8466278,
     "file_id": "558f1a53",
-    "reason": "Nama lengkap berbeda (Jayeng Himawan Hidayanto vs Jayeng Tedi Anggriawan), tempat lahir berbeda (Surakarta vs Surabaya), tanggal lahir kosong di institution, nama ibu kosong di institution dan berbeda dengan master.",
+    "reason": "Nama lengkap berbeda (jayeng himawan hidayanto vs jayeng tedi anggriawan), tempat lahir berbeda (surakarta vs surabaya), tanggal lahir kosong di institution, nama ibu kosong di institution dan Nama Ibu berbeda (ani salahudin vs KOSONG).",
     "timings_seconds": {
       "sql_get_institution_s": 0.02,
-      "load_parquet_minio_s": 0.49,
-      "sql_load_master_s": 9.96,
+      "load_parquet_minio_s": 6.21,
+      "sql_load_master_s": 84.81,
       "duckdb_join_s": 0.06,
       "llm_reasoning_s": 0.01
     },

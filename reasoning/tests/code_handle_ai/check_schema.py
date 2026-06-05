@@ -9,7 +9,17 @@ engine = create_engine(
 )
 
 with engine.connect() as conn:
+    print("=== institution ===")
+    res = conn.execute(text("DESCRIBE institution")).fetchall()
+    for r in res:
+        print(r[0])
+        
+    print("=== manual_matches ===")
     res = conn.execute(text("DESCRIBE manual_matches")).fetchall()
-    print("TOTAL COLUMNS:", len(res))
+    for r in res:
+        print(r[0])
+
+    print("=== master ===")
+    res = conn.execute(text("DESCRIBE master")).fetchall()
     for r in res:
         print(r[0])
