@@ -1,12 +1,18 @@
 import time
 from pathlib import Path
-
+from enum import Enum
 import polars as pl
 
 TARGET_COLUMNS = {"nik", "nama", "tempat_lahir", "tanggal_lahir", "jenis_kelamin", "nama_ibu"}
 
+class Grade(Enum):
+    A = 1
+    B = 2
+    C = 3
+    D = 4
+    E = 5
 
-def grade_lazyframe(lf: pl.LazyFrame) -> str:
+def grade_lazyframe(lf: pl.LazyFrame) -> Grade:
     """
     Core grading logic copied from GraderService._grade_dataframe.
     Computes column existence, non-null percentages, NIK length checks,
@@ -14,7 +20,7 @@ def grade_lazyframe(lf: pl.LazyFrame) -> str:
     """
     target_columns = {"nik", "nama", "tempat_lahir", "tanggal_lahir", "jenis_kelamin", "nama_ibu"}
     lf_columns_set = set(lf.columns)
-
+    
     # Build expressions for existing target columns only
     expressions = [pl.len().alias("total_rows")]
     for col in sorted(lf_columns_set & target_columns):
@@ -59,7 +65,7 @@ def grade_lazyframe(lf: pl.LazyFrame) -> str:
     results["nik_not_len16_count"] = pcts.get("nik_not_len16_count", 0)
 
     # --- Grading logic (checked in order: A, B, C, D, else E) ---
-    grade = "E"
+    grade = Grade.E.value
 
     nik_exists = results["nik_exists"]
     b_to_f = ["nama", "tempat_lahir", "tanggal_lahir", "jenis_kelamin", "nama_ibu"]
@@ -73,7 +79,7 @@ def grade_lazyframe(lf: pl.LazyFrame) -> str:
         )
         len16_100 = results["nik_not_len16_count"] == 0
         if all_100_nonnull and len16_100:
-            grade = "A"
+            grade = Grade.A.value
         elif (
             results["nik_len16"] >= 0.7
             and results["nama_null_count"] == 0
@@ -82,15 +88,15 @@ def grade_lazyframe(lf: pl.LazyFrame) -> str:
             and results["jenis_kelamin_nonnull"] >= 0.7
             and results["nama_ibu_nonnull"] >= 0.6
         ):
-            grade = "B"
+            grade = Grade.B.value
 
     # Grade C & D: nik must NOT exist, but nama_lengkap..nama_ibu must all exist
-    if grade == "E" and not nik_exists and b_to_f_exist:
+    if grade == Grade.E.value and not nik_exists and b_to_f_exist:
         all_b_to_f_100 = all(
             results[f"{c}_null_count"] == 0 for c in b_to_f
         )
         if all_b_to_f_100:
-            grade = "C"
+            grade = Grade.C.value
         elif (
             results["nama_null_count"] == 0
             and results["tempat_lahir_nonnull"] >= 0.7
@@ -98,13 +104,12 @@ def grade_lazyframe(lf: pl.LazyFrame) -> str:
             and results["jenis_kelamin_nonnull"] >= 0.7
             and results["nama_ibu_nonnull"] >= 0.6
         ):
-            grade = "D"
+            grade = Grade.D.value
 
-    return grade
-
+    return Grade(grade).name
 
 def main():
-    data_dir = Path("data")
+    data_dir = Path(r"instance\data")
     csv_files = sorted(data_dir.glob("*.csv"))
     multipliers = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
     # multipliers = [4096] # 4096 * 200,000 = 819,200,000 rows
