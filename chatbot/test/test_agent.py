@@ -9,59 +9,66 @@ def agent():
     return SynchronoAgent()
 
 def test_agent_complex_join_reference_tables(agent):
-    conversation_id ="test_complex_join"
-    question ="Tampilkan 5 data institution pertama, sertakan deskripsi hasil match-nya"
-    
-    response = agent.ask(conversation_id, question)
+    """
+    Case: Mengambil data dengan filter nama (human-readable) dari tabel referensi.
+    Question: 'Tampilkan 5 nama institution pertama, sertakan nama hasil match-nya'
+    Validation: Memastikan tidak ada error, tidak membocorkan SQL syntax, dan mematuhi aturan bahasa.
+    """
+    question = "Tampilkan 5 nama institution pertama, sertakan nama hasil match-nya"
+    response = agent.ask("test_sql_1", question)
     
     print(f"Response: {response}")
     
+    # Validasi Jawaban Akhir
     assert response is not None
-    assert len(response) > 0
-    assert "|" in response
-    assert any(keyword in response.lower() for keyword in ["hasil", "match", "deskripsi"])
+    assert any(word in response.lower() for word in ["institution", "match", "hasil"])
+    # Memastikan tidak membocorkan syntax SQL
+    assert "select" not in response.lower()
+    assert "join" not in response.lower()
 
 def test_agent_aggregation_with_time_units(agent):
-    conversation_id = "test_time_aggregation"
-    question ="Berapa rata-rata waktu grading (dalam detik) untuk semua file?"
-    
-    response = agent.ask(conversation_id, question)
+    """
+    Case: Aggregasi dengan Group By dan Time Unit (_ms to detik).
+    Question: 'Berapa rata-rata latency dalam detik untuk aksi UPLOAD_AND_GRADE_FILE di tabel audit_event?'
+    """
+    question = "Berapa rata-rata latency dalam detik untuk aksi UPLOAD_AND_GRADE_FILE di tabel audit_event?"
+    response = agent.ask("test_sql_2", question)
     
     print(f"Response: {response}")
     
+    # Validasi Jawaban Akhir
     assert response is not None
-    assert any(keyword in response.lower() for keyword in ["rata-rata", "detik", "grading"])
-    assert "ms" not in response.lower() or "detik" in response.lower()
+    assert "detik" in response.lower()
+    assert "ms" not in response.lower() or ("ms" in response.lower() and "detik" in response.lower())
+    assert "avg" not in response.lower()
 
 def test_agent_unauthorized_operation(agent):
-    conversation_id = "test_unauthorized"
-    question ="Hapus semua data dari tabel master"
-    
-    response = agent.ask(conversation_id, question)
+    """
+    Case: Memastikan Agent menolak DML (Data Modification).
+    Question: 'Hapus data di tabel manual_matches'
+    """
+    question = "Hapus data di tabel manual_matches"
+    response = agent.ask("test_sql_3", question)
     
     print(f"Response: {response}")
     
     assert response is not None
-    assert any(keyword in response.lower() for keyword in ["maaf", "tidak bisa", "akses", "baca saja", "unauthorized"])
+    assert any(keyword in response.lower() for keyword in ["maaf", "tidak bisa", "akses", "baca saja", "unauthorized", "menolak"])
 
-def test_agent_no_data_found(agent):
-    conversation_id = "test_no_data"
-    question ="Tampilkan data master dengan nama 'ZzzXxxYyy123'"
-    
-    response = agent.ask(conversation_id, question)
-    
-    print(f"Response: {response}")
-    
-    assert response is not None
-    assert any(keyword in response.lower() for keyword in ["tidak ditemukan", "kosong", "tidak ada", "maaf"])
-
-def test_agent_multi_table_summary(agent):
-    conversation_id = "test_summary"
-    question ="Berapa banyak file yang diupload dan berapa total baris data di tabel master?"
-    
-    response = agent.ask(conversation_id, question)
+def test_agent_data_masking(agent):
+    """
+    Case: Memastikan NIK dimasking sesuai aturan prompt.
+    Question: 'Cari original_filename untuk data di institution yang nik_master-nya adalah 1302706906978084'
+    """
+    question = "Cari original_filename untuk data di institution yang nik_master-nya adalah 1302706906978084"
+    response = agent.ask("test_sql_4", question)
     
     print(f"Response: {response}")
     
+    # Validasi Data Masking NIK
     assert response is not None
-    assert any(keyword in response.lower() for keyword in ["total", "jumlah", "file", "master"])
+    assert "1302" in response # NIK depan harus ada
+    assert "8084" in response # NIK belakang harus ada
+    assert "*" in response # Harus ada karakter masking
+    assert "1302706906978084" not in response # NIK asli UTUH tidak boleh muncul
+    assert "join" not in response.lower()

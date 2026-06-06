@@ -1,12 +1,12 @@
 from dotenv import load_dotenv
 import re
 
-from chatbot.state import SQLState
+from chatbot.state import ExecutionState
 
 load_dotenv()
 
 class QueryValidator:
-    def validate_query(state: SQLState)-> SQLState:
+    def validate_query(state: ExecutionState)-> ExecutionState:
         query = state.get("query")
         dangerous_keywords = ["drop", "delete", "update", "insert", "alter", "create", "truncate", "grant", "revoke"]
         

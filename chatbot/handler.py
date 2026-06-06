@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from opik.integrations.langchain import OpikTracer
 import os
 
-from chatbot.tools import ask_database
+from chatbot.tools import get_schema, execute_query
 from util.prompts import SYNCHORNO_AGENT_SYSTEM_PROMPT
 
 load_dotenv()
@@ -17,14 +17,16 @@ MODEL_BASE_URL = os.getenv("MODEL_BASE_URL")
 opik_tracer = OpikTracer()
 
 class SynchronoAgent:
-    def __init__(self, model: str = "ollama:gemma4:e4b"):
+    def __init__(self, model: str = "ollama:gemma4:31b-cloud"):
         self.model = init_chat_model(
             model=model,
-            base_url=MODEL_BASE_URL,
-            temperature=0
+            base_url="https://ollama.com",
+            temperature=0,
+            
+
         )
         self.system_prompt = SystemMessage(SYNCHORNO_AGENT_SYSTEM_PROMPT)
-        self.tools = [ask_database]
+        self.tools = [get_schema, execute_query]
 
     def ask(self, conversation_id: str, question: str)-> str:
         with SqliteSaver.from_conn_string("chatbot/memory.db") as checkpointer:
@@ -40,7 +42,6 @@ class SynchronoAgent:
                         keep=("messages", 10)
                     ),
                     ToolRetryMiddleware(),
-                    TodoListMiddleware()
                 ],
                 # checkpointer=checkpointer
             )

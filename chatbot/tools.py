@@ -2,31 +2,40 @@ from langchain.tools import tool
 from langchain.messages import HumanMessage
 from dotenv import load_dotenv
 
-from chatbot.sql_graph import SQLGraphBuilder
-
+from chatbot.executor_graph import executor_graph
+from chatbot.state import ExecutionState  
+from chatbot.db import db
 load_dotenv()
 
-sql_graph = SQLGraphBuilder().get_graph_app()
+@tool
+def get_schema() -> str:
+    """
+    Retrieves the complete database schema, including Data Definition Language (DDL) 
+    statements and 3 sample rows for every table. 
+    
+    You MUST call this tool FIRST before formulating any SQL queries. It is crucial 
+    for understanding table structures, column data types, and foreign key 
+    relationships (especially for joining with reference tables prefixed with 'ref_').
+    """
+    schema = db.get_table_info()
+    return schema
 
 @tool
-def ask_database(question: str)-> str:
+def execute_query(query: str) -> dict:
     """
-    This tool answers natural language questions by querying a SQL database. 
-    It's designed to retrieve specific information or insights from the database.
-
+    Executes a raw MySQL/StarRocks SELECT query against the database and returns the result.
+    
     Args:
-        question (str): The user's natural language question about the data in the SQL database.
+        query (str): The strictly READ-ONLY SELECT SQL query to execute. Do NOT wrap the query in markdown formatting (e.g., no ```sql block).
         
-    Returns: Combined string question, query, query result, and final answer.
+    Returns:
+        dict: A dictionary containing the query execution state.
+              - On success: returns {"result": "...data..."}
+              - On execution error: returns {"error_message": "...details..."}. You should analyze this error to correct your query and retry.
+              - On dangerous queries (e.g., DROP, UPDATE): returns {"is_dangerous": True, "result": "[WARNING]..."}. You must refuse the operation.
     """
+    response: ExecutionState = executor_graph.invoke({"query": query})
+    return response
 
-    response = sql_graph.invoke({"question": HumanMessage(question)})
-
-    final_response = f"""
-    Question: {question}
-    Query: {response.get("query")}
-    Query Result: {response.get("result")}
-    Final Answer: {response.get("answer")}
-    """
-    return final_response
-
+if __name__ == "__main__":
+    print(get_schema.invoke({}))
