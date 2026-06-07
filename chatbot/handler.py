@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from opik.integrations.langchain import OpikTracer
 import os
 
-from chatbot.tools import get_schema, execute_query
+from chatbot.tools import get_table_names, get_table_detail, run_query
 from util.prompts import SYNCHORNO_AGENT_SYSTEM_PROMPT
 
 load_dotenv()
@@ -18,26 +18,26 @@ opik_tracer = OpikTracer()
 
 class SynchronoAgent:
     def __init__(self, model: str = "ollama:gemma4:31b-cloud"):
-        self.model = init_chat_model(
+        self._model = init_chat_model(
             model=model,
             base_url="https://ollama.com",
             temperature=0,
             
 
         )
-        self.system_prompt = SystemMessage(SYNCHORNO_AGENT_SYSTEM_PROMPT)
-        self.tools = [get_schema, execute_query]
+        self._system_prompt = SystemMessage(SYNCHORNO_AGENT_SYSTEM_PROMPT)
+        self._tools = [run_query]
 
     def ask(self, conversation_id: str, question: str)-> str:
         with SqliteSaver.from_conn_string("chatbot/memory.db") as checkpointer:
             checkpointer.setup()
-            self.agent = create_agent(
-                model=self.model,
-                system_prompt=self.system_prompt,
-                tools=self.tools,
+            agent = create_agent(
+                model=self._model,
+                system_prompt=self._system_prompt,
+                tools=self._tools,
                 middleware=[
                     SummarizationMiddleware(
-                        model=self.model,
+                        model=self._model,
                         trigger=("messages", 20), 
                         keep=("messages", 10)
                     ),
@@ -46,7 +46,7 @@ class SynchronoAgent:
                 # checkpointer=checkpointer
             )
 
-            response = self.agent.invoke(
+            response = agent.invoke(
                 {"messages": [HumanMessage(question)]},
                 config={
                     "callbacks": [opik_tracer],
@@ -55,8 +55,3 @@ class SynchronoAgent:
             )
 
             return response["messages"][-1].text
-        
-if __name__ == "__main__":
-    agent = SynchronoAgent()
-    answer = agent.ask("session_01", "Field mana yang paling perlu diperbaiki? yg banyak record kosong nya")
-    print(answer)
