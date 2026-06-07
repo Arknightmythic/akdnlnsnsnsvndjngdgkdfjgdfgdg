@@ -4,7 +4,7 @@ from typing import TypedDict
 from dotenv import load_dotenv
 import re
 
-from chatbot.db import db
+from chatbot.database import mysql_db as db
 
 load_dotenv()
 
@@ -32,19 +32,6 @@ class RunQueryBuilder:
     def get_graph_app(self):
         return self._graph
         
-    def _execution_query(self, state: ExecutionState)-> ExecutionState:
-        query = state.get("query")
-        query = re.sub(r"```(?:sql)?\s*|\s*```|;", '', query, flags=re.IGNORECASE).strip()
-
-        try:
-            result = db.run(query)
-            if result:
-                return {"query_result": str(result)}
-            else:
-                return {"query_result": "No results returned."}
-        except Exception as e:
-            return {"error_message": str(e)}
-        
     def _validate_query(self, state: ExecutionState)-> ExecutionState:
         query = state.get("query")
         dangerous_keywords = ["drop", "delete", "update", "insert", "alter", "create", "truncate", "grant", "revoke"]
@@ -55,6 +42,19 @@ class RunQueryBuilder:
         if not query.lower().startswith("select"):
             return {"result": "[WARNING] The query is not a SELECT statement, which is required.", "is_dangerous": True}
         return {"is_dangerous": False}
+    
+    def _execution_query(self, state: ExecutionState)-> ExecutionState:
+        query = state.get("query")
+        query = re.sub(r"```(?:sql)?\s*|\s*```|;", '', query, flags=re.IGNORECASE).strip()
+
+        try:
+            result = db.execute(query)
+            if result:
+                return {"query_result": str(result)}
+            else:
+                return {"query_result": "No results returned."}
+        except Exception as e:
+            return {"error_message": str(e)}
         
     def _is_dangerous(self, state: ExecutionState):
         if state.get("is_dangerous"):

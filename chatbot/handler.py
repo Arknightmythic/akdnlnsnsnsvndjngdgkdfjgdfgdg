@@ -26,7 +26,7 @@ class SynchronoAgent:
 
         )
         self._system_prompt = SystemMessage(SYNCHORNO_AGENT_SYSTEM_PROMPT)
-        self._tools = [run_query]
+        self._tools = [get_table_names, get_table_detail, run_query]
 
     def ask(self, conversation_id: str, question: str)-> str:
         with SqliteSaver.from_conn_string("chatbot/memory.db") as checkpointer:
@@ -36,12 +36,13 @@ class SynchronoAgent:
                 system_prompt=self._system_prompt,
                 tools=self._tools,
                 middleware=[
-                    SummarizationMiddleware(
-                        model=self._model,
-                        trigger=("messages", 20), 
-                        keep=("messages", 10)
-                    ),
+                    # SummarizationMiddleware(
+                    #     model=self._model,
+                    #     trigger=("messages", 20), 
+                    #     keep=("messages", 10)
+                    # ),
                     ToolRetryMiddleware(),
+                    TodoListMiddleware()
                 ],
                 # checkpointer=checkpointer
             )
@@ -55,3 +56,9 @@ class SynchronoAgent:
             )
 
             return response["messages"][-1].text
+        
+if __name__ == "__main__":
+    agent = SynchronoAgent()
+    question = "buatkan saya laporan terbaru dari database yang tersedia"
+    response = agent.ask("test_sql_2", question)
+    print(response)
