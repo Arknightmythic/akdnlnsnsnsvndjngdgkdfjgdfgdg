@@ -23,7 +23,26 @@ class StarrocksService:
             VALUES (:file_id, :id_incoming, :nik_incoming, :nama_incoming,
                     :tempat_lahir_incoming, :area_incoming, :tanggal_lahir_incoming, :nama_ibu_incoming)
         """)
+        self.get_grade_rules_query = text("""
+            SELECT
+                grade_code,
+                auto_missing_max,
+                auto_score_min,
+                review_missing_count,
+                review_score_min,
+                review_score_max
+            FROM grade_rules
+        """)
         print("Starrocks Service Initialized!")
+
+    def load_grade_rules(self):
+        with self.engine.connect() as conn:
+            rows = conn.execute(self.get_grade_rules_query).mappings().all()
+
+        return {
+            row["grade_code"]: dict(row)
+            for row in rows
+        }
 
     def get_uploaded_file(self, file_id):
         query = text("""

@@ -2,12 +2,13 @@ from .matching_service import MatchingService
 
 class MatchFileHandler:
 
-    def __init__(self, minio_client, bucket_name, starrocks_engine):
+    def __init__(self, minio_client, bucket_name, starrocks_engine, grade_rules):
 
         self.matching_service = MatchingService(
             engine=starrocks_engine,
             minio_client=minio_client,
-            bucket_name=bucket_name
+            bucket_name=bucket_name,
+            grade_rules=grade_rules
         )
 
         print("Match Handler Initialized")

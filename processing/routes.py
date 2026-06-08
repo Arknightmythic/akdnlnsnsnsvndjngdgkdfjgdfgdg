@@ -25,6 +25,7 @@ class MatchFileRoutes:
             handler = MatchFileHandler(
                 request.app.state.minio_client,
                 request.app.state.raw_bucket,
-                request.app.state.starrocks_engine
+                request.app.state.starrocks_engine,
+                request.app.state.grade_rules
             )
             return await handler.process_file(file_id)
