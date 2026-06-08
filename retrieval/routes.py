@@ -48,3 +48,22 @@ class RetrieveDataRoutes:
                 grade=grade,
                 sync_status=sync_status
             )
+        
+        @self.router.get("/history_data")
+        async def get_history_data(
+            request: Request,
+            page: int = Query(..., ge=1),
+            institution_name: str = Query(...),
+            start_date: str = Query(...),
+            end_date: str = Query(...),
+        ):
+            handler = RetrieveDataHandler(
+                request.app.state.starrocks_engine
+            )
+
+            return handler.get_history_data(
+                page=page,
+                institution_name=institution_name,
+                start_date=start_date,
+                end_date=end_date
+            )
