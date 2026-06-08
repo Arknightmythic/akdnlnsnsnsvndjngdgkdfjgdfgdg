@@ -23,3 +23,11 @@ def test_agent_manual_review():
     response = agent.ask("test_sql_3", question)
     
     print(f"Response: {response}")
+
+def test_agent_short_term_memory():
+    question = "nama saya Maulana"
+    response = agent.ask("test_sql_4", question)
+    question = "inget gk siapa nama saya?"
+    response = agent.ask("test_sql_4", question)
+    
+    print(f"Response: {response}")

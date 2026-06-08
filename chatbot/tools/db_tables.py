@@ -21,5 +21,6 @@ def get_table_names() -> list[str]:
         database schema.
     """
     results = db.get_table_names()
+
     # ``db.get_table_names`` already returns ``list[str]``; we simply forward it.
     return results

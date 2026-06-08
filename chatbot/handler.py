@@ -10,10 +10,11 @@ import os
 
 from chatbot.tools import get_table_names, get_table_detail, run_query
 from util.prompts import SYNCHORNO_AGENT_SYSTEM_PROMPT
+from ingestion.starrocks_connection import DATABASE_URL
+from chatbot.database.starrocks import StarRocksSaver
 
 load_dotenv()
 
-MODEL_BASE_URL = os.getenv("MODEL_BASE_URL")
 opik_tracer = OpikTracer()
 
 class SynchronoAgent:
@@ -27,11 +28,17 @@ class SynchronoAgent:
         )
         self._system_prompt = SystemMessage(SYNCHORNO_AGENT_SYSTEM_PROMPT)
         self._tools = [get_table_names, get_table_detail, run_query]
+        self._memory = StarRocksSaver(
+            url=f"{os.getenv('STARROCKS_HOST')}:{os.getenv('STARROCKS_PORT')}",
+            user=os.getenv("STARROCKS_USER"),
+            password=os.getenv("STARROCKS_PASSWORD"),
+            database=os.getenv("STARROCKS_DATABASE"),
+
+        )
+        self._memory.setup()
 
     def ask(self, conversation_id: str, question: str)-> str:
-        with SqliteSaver.from_conn_string("chatbot/memory.db") as checkpointer:
-            checkpointer.setup()
-            agent = create_agent(
+        agent = create_agent(
                 model=self._model,
                 system_prompt=self._system_prompt,
                 tools=self._tools,
@@ -44,10 +51,10 @@ class SynchronoAgent:
                     ToolRetryMiddleware(),
                     TodoListMiddleware()
                 ],
-                # checkpointer=checkpointer
+                checkpointer=self._memory
             )
 
-            response = agent.invoke(
+        response = agent.invoke(
                 {"messages": [HumanMessage(question)]},
                 config={
                     "callbacks": [opik_tracer],
@@ -55,5 +62,5 @@ class SynchronoAgent:
                 }
             )
 
-            return response["messages"][-1].text
+        return response["messages"][-1].text
         
