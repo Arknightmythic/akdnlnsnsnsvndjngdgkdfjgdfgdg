@@ -17,8 +17,8 @@ from chatbot.routes import ChatbotRoutes
 from dotenv import load_dotenv
 
 load_dotenv()
-from reasoning.routes import ReasoningRoutes
-from reasoning.handler import ReasoningHandler
+# from reasoning.routes import ReasoningRoutes
+# from reasoning.handler import ReasoningHandler
 
 class SynchronoAPI:
     def __init__(self):
@@ -60,11 +60,13 @@ class SynchronoAPI:
             app.state.raw_bucket
         )
 
-        app.state.reasoning_handler = ReasoningHandler(
-            app.state.starrocks_engine,
-            app.state.minio_client,
-            app.state.raw_bucket
-        )
+
+
+        # app.state.reasoning_handler = ReasoningHandler(
+        #     app.state.starrocks_engine,
+        #     app.state.minio_client,
+        #     app.state.raw_bucket
+        # )
 
         yield
 
