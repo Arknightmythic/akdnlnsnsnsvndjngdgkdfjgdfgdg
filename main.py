@@ -16,6 +16,8 @@ from retrieval.routes import RetrieveDataRoutes
 from dotenv import load_dotenv
 
 load_dotenv()
+from reasoning.routes import ReasoningRoutes
+from reasoning.handler import ReasoningHandler
 
 class SynchronoAPI:
     def __init__(self):
@@ -51,6 +53,12 @@ class SynchronoAPI:
         app.state.starrocks_engine = engine
         print(">>> StarRocks connection opened")
 
+        app.state.reasoning_handler = ReasoningHandler(
+            app.state.starrocks_engine,
+            app.state.minio_client,
+            app.state.raw_bucket
+        )
+
         yield
 
         engine.dispose()
@@ -69,6 +77,9 @@ class SynchronoAPI:
 
         audit_routes = AuditRoutes()
         self.app.include_router(audit_routes.router, tags=["Audit & Retention"])
+
+        reasoning_routes = ReasoningRoutes()
+        self.app.include_router(reasoning_routes.router, prefix="/reasoning")
 
     def run(self):
         uvicorn.run(self.app,host="0.0.0.0",port=9191)
