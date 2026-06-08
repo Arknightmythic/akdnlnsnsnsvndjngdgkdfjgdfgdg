@@ -63,11 +63,14 @@ class SynchronoAPI:
 
 
 
-        # app.state.reasoning_handler = ReasoningHandler(
-        #     app.state.starrocks_engine,
-        #     app.state.minio_client,
-        #     app.state.raw_bucket
-        # )
+        
+
+
+        app.state.reasoning_handler = ReasoningHandler(
+            app.state.starrocks_engine
+            # app.state.minio_client,
+            # app.state.raw_bucket
+        )
 
         starrocks_service = StarrocksService(engine)
 

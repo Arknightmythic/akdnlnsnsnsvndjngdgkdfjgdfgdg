@@ -161,13 +161,16 @@ class StarrocksService:
                     "file_id": file_id
                 })
     
-    def insert_institution(self, insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status):
+    def insert_institution(self, insert_query, results, matched_time_query, matching_time_ms, file_id):
         with self.engine.begin() as conn:
             conn.execute(insert_query,results)
             conn.execute(matched_time_query,{
                     "matching_time_ms": matching_time_ms,
                     "file_id": file_id
                 })
+            
+    def set_sync_complete(self, file_id, sync_status):
+        with self.engine.begin() as conn:
             conn.execute(self.sync_status_query,{
                     "sync_status": sync_status,
                     "file_id": file_id
