@@ -140,6 +140,9 @@ _pypackages_/
 celerybeat-schedule*
 celerybeat.pid
 
+# ignore notebooks
+.notebook/
+
 # Redis
 *.rdb
 *.aof

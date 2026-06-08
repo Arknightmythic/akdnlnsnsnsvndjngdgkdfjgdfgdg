@@ -33,8 +33,9 @@ def test_processing_hits_reasoning_orchestrator(mock_trigger_delay):
         # 3. Mock Data & Fungsi di MatchingService agar tidak error
         file_id = "testing-file-123"
         
-        # Mock return dari get_uploaded_file (Anggap file ini grade 1 / Grade A)
-        handler.matching_service.get_uploaded_file = MagicMock(return_value={"grade": 1})
+        # Mock starrocks_service.get_uploaded_file (Anggap file ini grade 1 / Grade A)
+        handler.matching_service.starrocks_service = MagicMock()
+        handler.matching_service.starrocks_service.get_uploaded_file = MagicMock(return_value={"grade": 1})
         
         # Mock proses matching agar tidak benar-benar jalan
         handler.matching_service.process_grade_a = MagicMock(return_value={"status": "matched"})
@@ -69,7 +70,8 @@ def test_processing_hits_reasoning_orchestrator_grade_3(mock_trigger_delay):
         file_id = "testing-file-grade-3"
         
         # File memiliki grade 3
-        handler.matching_service.get_uploaded_file = MagicMock(return_value={"grade": 3})
+        handler.matching_service.starrocks_service = MagicMock()
+        handler.matching_service.starrocks_service.get_uploaded_file = MagicMock(return_value={"grade": 3})
         handler.matching_service.process_grade_c = MagicMock(return_value={"status": "matched_c"})
         
         await handler.process_file(file_id)
