@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 DATABASE_URL = (
     f"mysql+pymysql://"
     f"{os.getenv('STARROCKS_USER')}:"
