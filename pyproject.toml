@@ -20,6 +20,7 @@ dependencies = [
     "greenlet==3.5.0",
     "h11==0.16.0",
     "idna==3.15",
+    "langchain-openai>=1.2.2",
     "minio==7.2.20",
     "numpy==2.4.4",
     "polars==1.40.1",

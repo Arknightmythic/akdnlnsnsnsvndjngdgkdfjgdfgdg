@@ -10,7 +10,7 @@ def test_enqueue_endpoint():
     # Setup handler dengan engine mock (tidak perlu minio lagi)
     handler = ReasoningHandler(MagicMock())
     
-    with patch("reasoning.tasks.process_file_reasoning.delay") as mock_delay:
+    with patch("reasoning.tasks.trigger_rows_for_file.delay") as mock_delay:
         mock_task = MagicMock()
         mock_task.id = "fake-task-id"
         mock_delay.return_value = mock_task
