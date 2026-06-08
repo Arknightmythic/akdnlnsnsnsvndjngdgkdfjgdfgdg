@@ -17,7 +17,7 @@ MODEL_BASE_URL = os.getenv("MODEL_BASE_URL")
 opik_tracer = OpikTracer()
 
 class SynchronoAgent:
-    def __init__(self, model: str = "ollama:gemma4:31b-cloud"):
+    def __init__(self, model: str = "ollama:gemma4:31b"):
         self._model = init_chat_model(
             model=model,
             base_url="https://ollama.com",
@@ -51,14 +51,9 @@ class SynchronoAgent:
                 {"messages": [HumanMessage(question)]},
                 config={
                     "callbacks": [opik_tracer],
-                    # "configurable": {"thread_id": conversation_id}
+                    "configurable": {"thread_id": conversation_id}
                 }
             )
 
             return response["messages"][-1].text
         
-if __name__ == "__main__":
-    agent = SynchronoAgent()
-    question = "buatkan saya laporan terbaru dari database yang tersedia"
-    response = agent.ask("test_sql_2", question)
-    print(response)

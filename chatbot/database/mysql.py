@@ -49,7 +49,6 @@ class MySQLDatabase:
                 for record in records:
                     record = "\t".join([str(cell) for cell in list(record)])
                     results = results + "\n" + record
-                print(results) 
                 return results
             
         except Exception as e:
