@@ -1,6 +1,5 @@
 import time
 import json
-from io import BytesIO
 import duckdb
 import polars as pl
 import time
@@ -9,6 +8,7 @@ from .string_similarity import ScoringService
 from .minio_fetching_service import ObjectStorageService
 from .repository import StarrocksService
 from audit.audit_service import AuditService
+from reasoning.tasks import trigger_rows_for_file
 
 class MatchingService:
     def __init__(self, engine, minio_client, bucket_name, grade_rules):
@@ -38,6 +38,43 @@ class MatchingService:
         print(f"Master rows fetched: {master_df.height}")
 
         return uploaded_file, incoming_df, master_df
+    
+    def classify_result(self, grade_code: str, score: float, missing_count: int):
+        rule = self.grade_rules[grade_code]
+
+        auto_missing_max = rule["auto_missing_max"]
+        auto_score_min = rule["auto_score_min"]
+        review_missing_count = rule["review_missing_count"]
+        review_score_min = rule["review_score_min"]
+        review_score_max = rule["review_score_max"]
+
+        auto_missing_ok = (
+            auto_missing_max is None
+            or missing_count <= auto_missing_max
+        )
+
+        if auto_missing_ok and score >= auto_score_min:
+            return 1
+
+        review_missing_ok = (
+            review_missing_count is None
+            or missing_count == review_missing_count
+        )
+
+        if (
+            review_missing_ok
+            and review_score_min <= score < review_score_max
+        ):
+            return 2
+
+        return 3
+    
+    def trigger_ai_reasoning(self, file_id):
+        try:
+            trigger_rows_for_file.delay(file_id)
+            print(f"Enqueued reasoning orchestrator for file {file_id}")
+        except Exception as e:
+            print(f"Failed to enqueue reasoning orchestrator for {file_id}: {e}")
 
     def process_grade_a(self, file_id):
         start_time = time.perf_counter()
@@ -169,36 +206,6 @@ class MatchingService:
         )
 
         return response_data
-    
-    def classify_result(self, grade_code: str, score: float, missing_count: int):
-        rule = self.grade_rules[grade_code]
-
-        auto_missing_max = rule["auto_missing_max"]
-        auto_score_min = rule["auto_score_min"]
-        review_missing_count = rule["review_missing_count"]
-        review_score_min = rule["review_score_min"]
-        review_score_max = rule["review_score_max"]
-
-        auto_missing_ok = (
-            auto_missing_max is None
-            or missing_count <= auto_missing_max
-        )
-
-        if auto_missing_ok and score >= auto_score_min:
-            return 1
-
-        review_missing_ok = (
-            review_missing_count is None
-            or missing_count == review_missing_count
-        )
-
-        if (
-            review_missing_ok
-            and review_score_min <= score < review_score_max
-        ):
-            return 2
-
-        return 3
 
     def count_missing_attributes(self, row):
 
@@ -329,9 +336,11 @@ class MatchingService:
             WHERE file_id = :file_id
         """)
 
-        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
+        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id)
         if manual_review_rows:
             self.starrocks_service.insert_manual_review(manual_review_rows)
+        self.trigger_ai_reasoning(file_id)
+        self.starrocks_service.set_sync_complete(file_id, sync_status)
         print("Batch insert completed")
 
         response_data = {
@@ -518,9 +527,11 @@ class MatchingService:
             WHERE file_id = :file_id
         """)
 
-        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
+        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id)
         if manual_review_rows:
             self.starrocks_service.insert_manual_review(manual_review_rows)
+        self.trigger_ai_reasoning(file_id)
+        self.starrocks_service.set_sync_complete(file_id, sync_status)
         print("Batch insert completed")
         
         response_data = {
@@ -895,9 +906,12 @@ class MatchingService:
             WHERE file_id = :file_id
         """)
 
-        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
+        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id)
         if manual_review_rows:
             self.starrocks_service.insert_manual_review(manual_review_rows)
+        print('Triggering AI...')
+        self.trigger_ai_reasoning(file_id)
+        self.starrocks_service.set_sync_complete(file_id, sync_status)
         print("Batch insert completed")
 
         response_data = {
@@ -1233,9 +1247,11 @@ class MatchingService:
             WHERE file_id = :file_id
         """)
 
-        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status)
+        self.starrocks_service.insert_institution(insert_query, results, matched_time_query, matching_time_ms, file_id)
         if manual_review_rows:
             self.starrocks_service.insert_manual_review(manual_review_rows)
+        self.trigger_ai_reasoning(file_id)
+        self.starrocks_service.set_sync_complete(file_id, sync_status)
         print("Batch insert completed")
 
         response_data = {

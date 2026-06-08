@@ -36,12 +36,11 @@ class MatchFileHandler:
         else:
             raise Exception(f"Unsupported grade: {grade}")
 
-        # Panggil orchestrator Celery dari modul AI Reasoning
-        try:
-            from reasoning.tasks import trigger_rows_for_file
-            trigger_rows_for_file.delay(file_id)
-            print(f"Enqueued reasoning orchestrator for file {file_id}")
-        except Exception as e:
-            print(f"Failed to enqueue reasoning orchestrator for {file_id}: {e}")
+        # try:
+        #     from reasoning.tasks import trigger_rows_for_file
+        #     trigger_rows_for_file.delay(file_id)
+        #     print(f"Enqueued reasoning orchestrator for file {file_id}")
+        # except Exception as e:
+        #     print(f"Failed to enqueue reasoning orchestrator for {file_id}: {e}")
 
         return result
