@@ -226,6 +226,7 @@ _marimo_/
 
 
 *.db
+*.db*
 *.pdf
 .streamlit/secrets.toml
 
