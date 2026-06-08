@@ -12,6 +12,7 @@ from ingestion.routes import UploadFileRoutes
 from ingestion.starrocks_connection import engine
 
 from processing.routes import MatchFileRoutes
+from processing.repository import StarrocksService
 from retrieval.routes import RetrieveDataRoutes
 from chatbot.routes import ChatbotRoutes
 from dotenv import load_dotenv
@@ -67,6 +68,12 @@ class SynchronoAPI:
         #     app.state.minio_client,
         #     app.state.raw_bucket
         # )
+
+        starrocks_service = StarrocksService(engine)
+
+        app.state.grade_rules = starrocks_service.load_grade_rules()
+
+        print(f">>> Loaded {len(app.state.grade_rules)} grading rules")
 
         yield
 
