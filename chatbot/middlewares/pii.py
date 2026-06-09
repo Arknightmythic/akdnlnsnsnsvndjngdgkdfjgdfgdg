@@ -1,13 +1,13 @@
-from langchain.agents.middleware import PIIMiddleware, AgentState
+from langchain.agents.middleware import AgentMiddleware, AgentState
 from langgraph.runtime import Runtime
 from dotenv import load_dotenv
 import re
 
 load_dotenv()
 
-class PIIMiddlewareNIK(PIIMiddleware):
-    def __init__(self, pii_type, *, strategy = "mask", detector = None, apply_to_input = True, apply_to_output = False, apply_to_tool_results = False):
-        super().__init__(pii_type, strategy=strategy, detector=detector, apply_to_input=apply_to_input, apply_to_output=apply_to_output, apply_to_tool_results=apply_to_tool_results)
+class PIIMiddlewareNIK(AgentMiddleware):
+    def __init__(self, name: str, detector: str, strategy: str = "mask"):
+        self._name = name
         self._detector = detector
         self._strategy = strategy
 

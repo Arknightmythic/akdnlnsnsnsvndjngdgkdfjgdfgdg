@@ -73,5 +73,5 @@ class SynchronoAgent:
 
 if __name__ == "__main__":
     agent = SynchronoAgent("ollama:gemma4:31b", "https://ollama.com")
-    response = agent.ask("coba10", "Tampilkan 3 data dari institution beserta NIK-nya.")    
+    response = agent.ask("coba11", "Tampilkan 3 data dari institution beserta NIK-nya.")    
     print(response)
