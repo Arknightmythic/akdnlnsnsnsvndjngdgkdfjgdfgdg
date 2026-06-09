@@ -51,7 +51,7 @@ class SynchronoAgent:
         _current_middleware = self._middleware.copy()
         if enable_pii:
             _current_middleware.extend([
-                PIIMiddlewareNIK("nik", detector=r"\b\d{16}\b", strategy="mask")
+                PIIMiddlewareNIK(detector=r"\b\d{16}\b", strategy="mask")
             ])
 
         _agent = create_agent(
@@ -73,5 +73,5 @@ class SynchronoAgent:
 
 if __name__ == "__main__":
     agent = SynchronoAgent("ollama:gemma4:31b", "https://ollama.com")
-    response = agent.ask("coba11", "Tampilkan 3 data dari institution beserta NIK-nya.")    
+    response = agent.ask("coba12", "Tampilkan 3 data dari institution beserta NIK-nya.")    
     print(response)
