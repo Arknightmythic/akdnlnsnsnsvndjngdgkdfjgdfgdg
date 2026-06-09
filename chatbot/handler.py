@@ -23,8 +23,6 @@ class SynchronoAgent:
             model=model,
             base_url="https://ollama.com",
             temperature=0,
-            
-
         )
         self._system_prompt = SystemMessage(SYNCHORNO_AGENT_SYSTEM_PROMPT)
         self._tools = [get_table_names, get_table_detail, run_query]
