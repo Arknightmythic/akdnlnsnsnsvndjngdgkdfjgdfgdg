@@ -51,7 +51,7 @@ class SynchronoAgent:
         _current_middleware = self._middleware.copy()
         if enable_pii:
             _current_middleware.extend([
-                PIIMiddlewareSynchrono(detector=r"\b\d{16}\b", strategy="mask")
+                PIIMiddlewareSynchrono(pii_type="nik", detector=r"\b\d{16}\b", strategy="mask")
             ])
 
         _agent = create_agent(

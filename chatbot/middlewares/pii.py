@@ -6,10 +6,15 @@ import re
 load_dotenv()
 
 class PIIMiddlewareSynchrono(AgentMiddleware):
-    def __init__(self, detector: str, strategy: str = "mask"):
+    def __init__(self, pii_type: str, detector: str, strategy: str = "mask"):
+        self._pii_type = pii_type
         self._detector = detector
         self._strategy = strategy
-
+        
+    @property
+    def name(self)-> str:
+        return f"{self.__class__.__name__}[{self._pii_type}]"
+    
     def after_agent(self, state: AgentState, runtime: Runtime)-> AgentState:
         messages = state.get("messages")
         if not messages:
