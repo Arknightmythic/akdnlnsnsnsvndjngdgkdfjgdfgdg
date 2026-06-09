@@ -16,7 +16,8 @@ celery_app = Celery(
 celery_app.conf.update(
     timezone="Asia/Jakarta",
     enable_utc=False,
-    broker_connection_retry_on_startup=True
+    broker_connection_retry_on_startup=True,
+    task_default_queue="audit_queue"
 )
 
 # Konfigurasi Celery Beat (Scheduler)
@@ -28,4 +29,4 @@ celery_app.conf.beat_schedule = {
 }
 
 # Autodiscover akan mencari file tasks.py di dalam folder 'audit'
-celery_app.autodiscover_tasks(["audit"])
+celery_app.autodiscover_tasks(["audit", "processing"])

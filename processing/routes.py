@@ -1,7 +1,8 @@
-from fastapi import APIRouter, UploadFile, File, Request, Header, Depends
-from typing import List
-from .handler import MatchFileHandler
+from fastapi import APIRouter, File, Request, Header, Depends
+from starlette import status
+from starlette.responses import JSONResponse
 from audit.audit_service import AuditService
+from .tasks import run_matching_task
 
 class MatchFileRoutes:
     def __init__(self):
@@ -11,8 +12,8 @@ class MatchFileRoutes:
 
     def setup_routes(self):
         @self.router.post("/")
-        async def process_file(request: Request, file_id: str):
-            # Log Access Event
+        def process_file(request: Request, file_id: str):
+            # Log Access Event tetap dicatat secara sinkron
             client_ip = request.client.host if request.client else "unknown"
             audit_service = AuditService(request.app.state.starrocks_engine)
             audit_service.log_access_event(
@@ -22,10 +23,16 @@ class MatchFileRoutes:
                 ip_address=client_ip,
                 result="SUCCESS"
             )
-            handler = MatchFileHandler(
-                request.app.state.minio_client,
-                request.app.state.raw_bucket,
-                request.app.state.starrocks_engine,
-                request.app.state.grade_rules
+            
+            # Offload proses berat ke Celery Worker (menggunakan queue spesifik)
+            run_matching_task.apply_async(args=[file_id], queue="matching_queue")
+            
+            # Langsung kembalikan respons 202 ke frontend/client
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content={
+                    "status": "ACCEPTED",
+                    "message": "Data matching process has been enqueued and is running in the background.",
+                    "file_id": file_id
+                }
             )
-            return await handler.process_file(file_id)

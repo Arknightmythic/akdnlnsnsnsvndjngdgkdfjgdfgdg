@@ -457,17 +457,17 @@ class ReasoningService:
             "results": results,
         }
 
-    def process_reasoning_by_id(self, mm_id: int, dry_run: bool = False):
+    def process_reasoning_by_id(self, mm_id: int, dry_run: bool = False, commit_to_db: bool = True):
         """Memproses AI reasoning untuk 1 baris spesifik (id dari manual_matches)."""
         start_row = time.perf_counter()
 
         row, err = self.build_comparison_pair_by_id(mm_id)
         if err:
-            if not dry_run:
+            if not dry_run and commit_to_db:
                 self._update_mm_status(mm_id, "FAILED")
             return {"status": "error", "message": err, "id": mm_id}
 
-        if not dry_run:
+        if not dry_run and commit_to_db:
             self._update_mm_status(mm_id, "PROCESSING")
 
         pattern_info = self.pattern_detector.detect(row)
@@ -484,8 +484,9 @@ class ReasoningService:
                 source = "CACHE"
 
                 if not dry_run:
-                    self._increment_pattern_hit(pattern_hash)
-                    self._update_mm_result(mm_id, reason_text, pattern_name, source)
+                    if commit_to_db: # <--- Mencegah penulisan satuan jika sedang mode Batching
+                        self._increment_pattern_hit(pattern_hash)
+                        self._update_mm_result(mm_id, reason_text, pattern_name, source)
 
                 print(f"[ID: {mm_id}] [CACHE HIT] {pattern_name} | {reason_text}")
 
@@ -522,6 +523,7 @@ class ReasoningService:
 
                 if not dry_run:
                     template = self._convert_to_template(reason_text, row)
+                    # save_pattern tetap dieksekusi langsung agar pattern baru langsung terekam
                     pattern_name = self._save_pattern(
                         pattern_hash,
                         pattern_info["pattern_name_suffix"],
@@ -529,7 +531,9 @@ class ReasoningService:
                         template,
                         mm_id,
                     )
-                    self._update_mm_result(mm_id, reason_text, pattern_name, source)
+                    
+                    if commit_to_db: # <--- Mencegah penulisan satuan
+                        self._update_mm_result(mm_id, reason_text, pattern_name, source)
                 else:
                     pattern_name = f"DRY_RUN_{pattern_info['pattern_name_suffix']}"
 
@@ -537,7 +541,7 @@ class ReasoningService:
 
         except Exception as exc:
             print(f"[ERR] Error processing manual_matches ID {mm_id}: {exc}")
-            if not dry_run:
+            if not dry_run and commit_to_db:
                 self._update_mm_status(mm_id, "FAILED")
             return {"status": "error", "message": str(exc), "id": mm_id}
 
@@ -551,3 +555,52 @@ class ReasoningService:
             "llm_time_seconds": round(llm_duration, 2),
             "total_time_seconds": round(row_duration, 2),
         }
+    
+    def bulk_update_mm_results(self, results: list):
+        """
+        True Bulk Upsert menggunakan fitur Partial Update StarRocks.
+        Kode super bersih tanpa perlu merakit string SQL secara manual!
+        """
+        from sqlalchemy import text
+        
+        success_data = []
+        error_data = []
+        
+        for r in results:
+            if r["status"] == "success":
+                success_data.append({
+                    "p_id": r["id"],
+                    "p_reason": r["reason"],
+                    "p_pattern": r["pattern_name"],
+                    "p_source": r["source"],
+                    "p_status": "COMPLETED"
+                })
+            else:
+                error_data.append({
+                    "p_id": r["id"],
+                    "p_status": "FAILED"
+                })
+
+        with self.engine.begin() as conn:
+            try:
+                # 1. PERBAIKAN: Gunakan variabel 'enable_insert_partial_update' sesuai versi StarRocks Anda
+                conn.execute(text("SET enable_insert_partial_update=true;"))
+                
+                # 2. Eksekusi INSERT 
+                if success_data:
+                    conn.execute(text("""
+                        INSERT INTO manual_matches (id, reason, pattern_name, reasoning_source, reasoning_status)
+                        VALUES (:p_id, :p_reason, :p_pattern, :p_source, :p_status)
+                    """), success_data)
+                    
+                if error_data:
+                    conn.execute(text("""
+                        INSERT INTO manual_matches (id, reasoning_status)
+                        VALUES (:p_id, :p_status)
+                    """), error_data)
+                    
+            finally:
+                # 3. PERBAIKAN: Pastikan dikembalikan ke false menggunakan nama variabel yang sama
+                conn.execute(text("SET enable_insert_partial_update=false;"))
+                
+        print(f"[Bulk Update] Menyimpan {len(success_data)} sukses & {len(error_data)} gagal menggunakan metode UPSERT.")
