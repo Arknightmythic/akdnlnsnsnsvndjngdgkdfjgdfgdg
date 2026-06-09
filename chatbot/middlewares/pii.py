@@ -5,7 +5,7 @@ import re
 
 load_dotenv()
 
-class PIIMiddlewareNIK(AgentMiddleware):
+class PIIMiddlewareSynchrono(AgentMiddleware):
     def __init__(self, detector: str, strategy: str = "mask"):
         self._detector = detector
         self._strategy = strategy

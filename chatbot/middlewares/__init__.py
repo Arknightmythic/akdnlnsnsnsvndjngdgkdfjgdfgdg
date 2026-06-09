@@ -1,3 +1,3 @@
-from chatbot.middlewares.pii import PIIMiddlewareNIK
+from chatbot.middlewares.pii import PIIMiddlewareSynchrono
 
-__all__ = ["PIIMiddlewareNIK"]
+__all__ = ["PIIMiddlewareSynchrono"]

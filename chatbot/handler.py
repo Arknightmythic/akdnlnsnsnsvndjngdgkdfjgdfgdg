@@ -14,7 +14,7 @@ from chatbot.tools import get_table_names, get_table_detail, run_query
 from util.prompts import SYNCHORNO_AGENT_SYSTEM_PROMPT
 from ingestion.starrocks_connection import DATABASE_URL
 from chatbot.database.starrocks import StarRocksSaver
-from chatbot.middlewares import PIIMiddlewareNIK
+from chatbot.middlewares import PIIMiddlewareSynchrono
 
 load_dotenv()
 
