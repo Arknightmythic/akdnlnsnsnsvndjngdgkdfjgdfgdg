@@ -21,4 +21,5 @@ celery_app.conf.update(
     result_expires=3600,
     worker_prefetch_multiplier=1,
     task_acks_late=True,
+    task_default_queue="reasoning_queue"
 )
