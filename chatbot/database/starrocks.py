@@ -1,5 +1,6 @@
 from typing import Any, AsyncIterator, Dict, Iterator, Optional, Sequence, Tuple, cast
 from sqlalchemy import text
+from langchain.messages import HumanMessage, AIMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import (
     WRITES_IDX_MAP,
@@ -276,7 +277,8 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                             (
                                 tr["task_id"],
                                 tr["channel"],
-                                self.serde.loads_typed((type_, _ensure_bytes(tr["value"]))),
+                                self.serde.loads_typed((type_, _ensure_bytes(tr["value"])))
+                                if tr["value"] not in (None, "", b"") else None,
                             )
                             for tr in task_results
                         ]
