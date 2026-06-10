@@ -14,7 +14,7 @@ MODEL_BASE_URL = os.getenv("MODEL_BASE_URL")
 QDRANT_URL = os.getenv("QDRANT_URL")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME")
 
-class Ingestator:
+class Ingestor:
     def __init__(self):
         self._qdrant_client = QdrantClient(host="172.16.12.98")
         self._embedding = OllamaEmbeddings(
@@ -59,7 +59,7 @@ class Ingestator:
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
 
-    def ingest_file(self, file_path: Path, processed_hashes: set):
+    def ingest_file(self, file_path: Path):
         file_hash = self._compute_file_hash(file_path)
         path_str = str(file_path)
 
