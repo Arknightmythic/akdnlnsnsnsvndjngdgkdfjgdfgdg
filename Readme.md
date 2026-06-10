@@ -181,7 +181,3 @@ python -m celery -A processing.celery_app worker -Q celery --pool=solo --logleve
 *Catatan: Argumen `--pool=solo` digunakan untuk kompatibilitas OS Windows. Jika aplikasi di-deploy ke server Linux/Production (seperti Ubuntu atau container Docker), Anda bisa menghapus `--pool=solo` dan menggantinya dengan argumen concurrency (contoh: `--concurrency=4`) agar worker dapat memanfaatkan multi-core CPU secara maksimal.*
 
 ```
-
-Draf ini sudah mencakup penjelasan singkat untuk masing-masing fungsi *worker* sehingga engineer atau rekan tim Anda yang lain bisa langsung memahami arsitektur antrean (*queue*) yang sedang berjalan!
-
-```
