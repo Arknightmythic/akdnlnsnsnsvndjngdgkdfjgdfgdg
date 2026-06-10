@@ -33,6 +33,7 @@ dependencies = [
     "minio==7.2.20",
     "numpy==2.4.4",
     "opik>=2.0.56",
+    "pandas>=3.0.3",
     "polars==1.40.1",
     "polars-runtime-32==1.40.1",
     "pyarrow==24.0.0",
