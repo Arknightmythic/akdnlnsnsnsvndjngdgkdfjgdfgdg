@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Query
 from .handler import RetrieveDataHandler
 from audit.audit_service import AuditService
+from util.parquet_loader import ParquetLoader
 
 class RetrieveDataRoutes:
     def __init__(self):
@@ -66,4 +67,19 @@ class RetrieveDataRoutes:
                 institution_name=institution_name,
                 start_date=start_date,
                 end_date=end_date
+            )
+        
+        @self.router.get("/preview-data/{file_id}")
+        async def preview_data(file_id: str, request: Request):
+
+            handler = RetrieveDataHandler(
+                engine=request.app.state.starrocks_engine,
+                parquet_loader=ParquetLoader(
+                    request.app.state.minio_client,
+                    request.app.state.raw_bucket
+                )
+            )
+
+            return handler.get_preview_data(
+                file_id=file_id,
             )
