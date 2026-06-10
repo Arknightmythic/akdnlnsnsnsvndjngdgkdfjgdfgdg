@@ -2,6 +2,7 @@ from sqlalchemy import text
 from typing import Any
 from dotenv import load_dotenv
 import os
+import uuid
 
 from ingestion.starrocks_connection import engine
 
@@ -54,3 +55,100 @@ class MySQLDatabase:
         except Exception as e:
             print(f"Error: {e}")
                    
+    def _ensure_tables(self) -> None:
+        with engine.connect() as conn:
+            conn.execute(text(
+                """
+                CREATE TABLE IF NOT EXISTS `conversation` (
+                    `id` STRING PRIMARY KEY,
+                    `user_id` STRING NOT NULL,
+                    `title` STRING NOT NULL,
+                    `created_at` DATETIME NOT NULL DEFAULT NOW(),
+                    `updated_at` DATETIME NOT NULL DEFAULT NOW()
+                ) ENGINE=OLAP
+                """
+            ))
+            conn.execute(text(
+                """
+                CREATE TABLE IF NOT EXISTS `message` (
+                    `id` STRING PRIMARY KEY,
+                    `conversation_id` STRING NOT NULL,
+                    `role` STRING NOT NULL,
+                    `content` STRING NOT NULL,
+                    `created_at` DATETIME NOT NULL DEFAULT NOW()
+                ) ENGINE=OLAP
+                """
+            ))
+            conn.commit()
+
+    def insert_conversation(self, user_id: str, conversation_id: str, title: str) -> None:
+        try:
+            self._ensure_tables()
+            with engine.connect() as conn:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO `conversation` (id, user_id, title, created_at, updated_at)
+                        VALUES (:id, :user_id, :title, NOW(), NOW())
+                        """
+                    ),
+                    {"id": conversation_id, "user_id": user_id, "title": title},
+                )
+                conn.commit()
+        except Exception as e:
+            print(f"Error inserting conversation: {e}")
+
+
+    def insert_message(self, conversation_id: str, role: str, content: str) -> None:
+        try:
+            self._ensure_tables()
+            with engine.connect() as conn:
+                msg_id = str(uuid.uuid4())
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO `message` (id, conversation_id, role, content, created_at)
+                        VALUES (:id, :cid, :role, :content, NOW())
+                        """
+                    ),
+                    {"id": msg_id, "cid": conversation_id, "role": role, "content": content},
+                )
+                conn.commit()
+        except Exception as e:
+            print(f"Error inserting message: {e}")
+
+    def conversation_exists(self, user_id: str, conversation_id: str) -> bool:
+        try:
+            self._ensure_tables()
+            with engine.connect() as conn:
+                result = conn.execute(
+                    text(
+                        """
+                        SELECT 1 FROM conversation
+                        WHERE id = :cid AND user_id = :uid LIMIT 1
+                        """
+                    ),
+                    {"cid": conversation_id, "uid": user_id},
+                ).fetchone()
+                return result is not None
+        except Exception as e:
+            print(f"Error checking conversation existence: {e}")
+            return False
+
+    def update_conversation_timestamp(self, conversation_id: str) -> None:
+        try:
+            self._ensure_tables()
+            with engine.connect() as conn:
+                conn.execute(
+                    text(
+                        """
+                        UPDATE `conversation`
+                        SET `updated_at` = NOW()
+                        WHERE `id` = :cid
+                        """
+                    ),
+                    {"cid": conversation_id},
+                )
+                conn.commit()
+        except Exception as e:
+            print(f"Error updating conversation timestamp: {e}")
