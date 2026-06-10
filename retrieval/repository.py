@@ -189,3 +189,76 @@ class RetrieveRepository:
             rows = conn.execute(data_query, params).mappings().all()
 
         return [dict(row) for row in rows], total_rows
+    
+    def get_minio_path(self, file_id: str):
+        q = text("""
+            SELECT minio_path, is_sync, sync_status
+            FROM uploaded_files
+            WHERE file_id = :file_id
+        """)
+
+        with self.engine.connect() as conn:
+            return conn.execute(q, {"file_id": file_id}).mappings().first()
+        
+    def get_completed_data(self, file_id: str):
+        match_query = text("""
+            SELECT
+                i.id_incoming,
+                i.nik_master,
+                i.match_score,
+                mr.match_result_name,
+                i.file_id
+            FROM institution i
+            JOIN ref_match_results mr
+            WHERE i.file_id = :file_id 
+            AND i.match_result = mr.match_result_id
+            AND i.match_result IN (1,4)
+            ORDER BY i.match_score DESC
+            LIMIT 30
+        """)
+
+        unmatch_query = text("""
+            SELECT
+                i.id_incoming,
+                i.match_score,
+                mr.match_result_name,
+                i.file_id
+            FROM institution i
+            JOIN ref_match_results mr
+            WHERE i.file_id = :file_id
+            AND i.match_result = mr.match_result_id
+            AND i.match_result IN (3,5)
+            ORDER BY i.match_score ASC
+            LIMIT 30
+        """)
+
+        with self.engine.connect() as conn:
+            matches = conn.execute(
+                match_query,
+                {"file_id": file_id}
+            ).mappings().all()
+
+            unmatches = conn.execute(
+                unmatch_query,
+                {"file_id": file_id}
+            ).mappings().all()
+
+        return {
+            "match": [dict(row) for row in matches],
+            "unmatch": [dict(row) for row in unmatches]
+        }
+        
+    def get_master_by_niks(self, niks):
+        if not niks:
+            return {}
+
+        q = text("""
+            SELECT nik, nama_lengkap, tempat_lahir, tanggal_lahir, jenis_kelamin, nama_ibu, provinsi, kabupaten, kecamatan, kelurahan, status_kematian
+            FROM master
+            WHERE nik IN :niks
+        """)
+
+        with self.engine.connect() as conn:
+            rows = conn.execute(q, {"niks": tuple(niks)}).mappings().all()
+
+        return {r["nik"]: dict(r) for r in rows}
