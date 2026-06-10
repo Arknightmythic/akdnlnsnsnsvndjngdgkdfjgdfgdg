@@ -21,7 +21,8 @@ class RetrieveRepository:
                 rg.grade_code as grade,
                 uf.row_count,
                 rp.process_name as processing_status,
-                uf.is_sync
+                uf.is_sync,
+                uf.matching_task_status
             FROM uploaded_files uf
             INNER JOIN ref_grades rg
                 ON uf.grade = rg.grade_id
