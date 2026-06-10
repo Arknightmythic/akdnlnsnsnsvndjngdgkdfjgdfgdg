@@ -64,16 +64,17 @@ class MatchTask(Task):
     acks_late=True,
 )
 def run_matching_task(self, file_id: str):
-    """
-    Background Task untuk mengeksekusi komputasi Matching.
-    """
     try:
         logger.info(f"Mulai mengeksekusi proses matching di background untuk file_id: {file_id}")
         # Eksekusi fungsi utama
-        result = asyncio.run(self.handler.process_file(file_id))
-        logger.info(f"Matching selesai untuk file_id: {file_id}")
+        result = self.handler.process_file(file_id)
         return result
     except Exception as exc:
         logger.error(f"Gagal melakukan matching pada file_id {file_id}: {exc}")
-        # Retry otomatis jika terjadi kegagalan (misal: koneksi DB putus sementara)
+        
+        # --- TAMBAHAN: UPDATE STATUS KE FAILED ---
+        from processing.repository import StarrocksService
+        starrocks = StarrocksService(self.engine)
+        starrocks.set_matching_task_info(file_id, None, "FAILED")
+        
         raise self.retry(exc=exc, max_retries=3, countdown=60)
