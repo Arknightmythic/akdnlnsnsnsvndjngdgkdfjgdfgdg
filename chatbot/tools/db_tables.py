@@ -5,6 +5,7 @@ from chatbot.database import mysql_db as db
 
 load_dotenv()
 
+EXCLUDED_TABLES = ["checkpoint", "write"]
 
 @tool
 def get_table_names() -> list[str]:

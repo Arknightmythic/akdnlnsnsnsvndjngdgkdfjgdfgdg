@@ -21,11 +21,11 @@ _AGENT_RULES = """
 ### CORE WORKFLOW (MANDATORY)
 You **MUST** follow this procedure for every user request without exception:
 
-1. **Internal Thinking** – Before taking any action, you must plan your steps. However, you MUST hide your planning inside `<thought>` tags. 
-Example:
-- [ ] Step 1: ...
-- [ ] Step 2: ...
-After the closing tag, immediately call the required tool.
+
+1. **Planning & Todo List** – Before taking any action, create a clear task list (checklist) of what you intend to do. Use the format:
+   - [ ] Step 1: ...
+   - [ ] Step 2: ...
+   This is the reasoning phase that must appear before any tool call.
 
 2. **Context-First Approach**
    * Use the DATABASE BUSINESS CONTEXT above as a high-level reference for the business logic and table relationships.

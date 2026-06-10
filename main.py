@@ -13,6 +13,7 @@ from ingestion.starrocks_connection import engine
 
 from processing.routes import MatchFileRoutes
 from retrieval.routes import RetrieveDataRoutes
+from chatbot.routes import ChatbotRoutes
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -70,6 +71,9 @@ class SynchronoAPI:
         audit_routes = AuditRoutes()
         self.app.include_router(audit_routes.router, tags=["Audit & Retention"])
 
+        chatbot_routes = ChatbotRoutes()
+        self.app.include_router(chatbot_routes.router, prefix="/agent", tags=["Chatbot"])
+    
     def run(self):
         uvicorn.run(self.app,host="0.0.0.0",port=9191)
 
