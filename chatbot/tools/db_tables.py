@@ -5,6 +5,7 @@ from chatbot.database import mysql_db as db
 
 load_dotenv()
 
+EXCLUDED_TABLES = ["checkpoint", "write"]
 
 @tool
 def get_table_names() -> list[str]:
@@ -21,5 +22,6 @@ def get_table_names() -> list[str]:
         database schema.
     """
     results = db.get_table_names()
+
     # ``db.get_table_names`` already returns ``list[str]``; we simply forward it.
     return results

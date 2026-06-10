@@ -15,6 +15,7 @@ from processing.routes import MatchFileRoutes
 from processing.repository import StarrocksService
 from reasoning.handler import ReasoningHandler
 from retrieval.routes import RetrieveDataRoutes
+from chatbot.routes import ChatbotRoutes
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -85,8 +86,11 @@ class SynchronoAPI:
         audit_routes = AuditRoutes()
         self.app.include_router(audit_routes.router, tags=["Audit & Retention"])
 
-        # reasoning_routes = ReasoningRoutes()
-        # self.app.include_router(reasoning_routes.router, prefix="/reasoning")
+        chatbot_routes = ChatbotRoutes()
+        self.app.include_router(chatbot_routes.router, prefix="/agent", tags=["Chatbot"])
+    
+        reasoning_routes = ReasoningRoutes()
+        self.app.include_router(reasoning_routes.router, prefix="/reasoning")
 
     def run(self):
         uvicorn.run(self.app,host="0.0.0.0",port=9191)
