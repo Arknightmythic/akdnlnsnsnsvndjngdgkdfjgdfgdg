@@ -17,9 +17,9 @@ from reasoning.handler import ReasoningHandler
 from retrieval.routes import RetrieveDataRoutes
 from chatbot.routes import ChatbotRoutes
 from dotenv import load_dotenv
+from reasoning.routes import ReasoningRoutes
 
 load_dotenv()
-# from reasoning.routes import ReasoningRoutes
 
 class SynchronoAPI:
     def __init__(self):
