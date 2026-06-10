@@ -14,7 +14,8 @@ class StarrocksService:
             UPDATE uploaded_files
             SET
             is_sync = 1,
-            sync_status = :sync_status
+            sync_status = :sync_status,
+            matching_task_status = 'SUCCESS'
             WHERE file_id = :file_id
         """)
         self.manual_review_insert_query = text("""
@@ -23,7 +24,26 @@ class StarrocksService:
             VALUES (:file_id, :id_incoming, :nik_incoming, :nama_incoming,
                     :tempat_lahir_incoming, :area_incoming, :tanggal_lahir_incoming, :nama_ibu_incoming)
         """)
+        self.get_grade_rules_query = text("""
+            SELECT
+                grade_code,
+                auto_missing_max,
+                auto_score_min,
+                review_missing_count,
+                review_score_min,
+                review_score_max
+            FROM grade_rules
+        """)
         print("Starrocks Service Initialized!")
+
+    def load_grade_rules(self):
+        with self.engine.connect() as conn:
+            rows = conn.execute(self.get_grade_rules_query).mappings().all()
+
+        return {
+            row["grade_code"]: dict(row)
+            for row in rows
+        }
 
     def get_uploaded_file(self, file_id):
         query = text("""
@@ -142,13 +162,16 @@ class StarrocksService:
                     "file_id": file_id
                 })
     
-    def insert_institution(self, insert_query, results, matched_time_query, matching_time_ms, file_id, sync_status):
+    def insert_institution(self, insert_query, results, matched_time_query, matching_time_ms, file_id):
         with self.engine.begin() as conn:
             conn.execute(insert_query,results)
             conn.execute(matched_time_query,{
                     "matching_time_ms": matching_time_ms,
                     "file_id": file_id
                 })
+            
+    def set_sync_complete(self, file_id, sync_status):
+        with self.engine.begin() as conn:
             conn.execute(self.sync_status_query,{
                     "sync_status": sync_status,
                     "file_id": file_id
@@ -157,3 +180,14 @@ class StarrocksService:
     def insert_manual_review(self, rows):
         with self.engine.begin() as conn:
             conn.execute(self.manual_review_insert_query, rows)
+
+    def set_matching_task_info(self, file_id: str, task_id: str, status: str):
+        query = text("""
+            UPDATE uploaded_files 
+            SET matching_task_status = :status
+                ${', matching_task_id = :task_id' if task_id else ''}
+            WHERE file_id = :file_id
+        """.replace("${', matching_task_id = :task_id' if task_id else ''}", ", matching_task_id = :task_id" if task_id else ""))
+        
+        with self.engine.begin() as conn:
+            conn.execute(query, {"file_id": file_id, "task_id": task_id, "status": status})

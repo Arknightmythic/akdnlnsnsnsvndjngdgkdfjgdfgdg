@@ -1,5 +1,5 @@
 from .reasoning_service import ReasoningService
-
+import concurrent.futures
 
 class ReasoningHandler:
     def __init__(self, engine):
@@ -30,3 +30,41 @@ class ReasoningHandler:
     def run_reasoning(self, file_id: str) -> dict:
         """Legacy sync run - dialihkan ke enqueue agar aman."""
         return self.enqueue_reasoning(file_id)
+    
+    def run_reasoning_batch(self, batch_ids: list, batch_num: int = 1, total_batches: int = 1) -> dict:
+        """
+        Menjalankan AI reasoning secara paralel (Multi-threading) di memori,
+        beserta logging status batch ke terminal.
+        """
+        # Logging Progres
+        print(f"🚀 [Batch {batch_num}/{total_batches}] Memulai pemrosesan {len(batch_ids)} baris...")
+        
+        results_to_update = []
+        
+        # --- MULTI-THREADING (10 Pekerjaan Sekaligus) ---
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            # Submit semua ID ke executor thread
+            futures = {
+                executor.submit(
+                    self.reasoning_service.process_reasoning_by_id, 
+                    mm_id=mm_id, 
+                    dry_run=False, 
+                    commit_to_db=False
+                ): mm_id for mm_id in batch_ids
+            }
+            
+            # Ambil hasil dari thread yang sudah selesai (tanpa mempedulikan urutan)
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    res = future.result()
+                    results_to_update.append(res)
+                except Exception as exc:
+                    print(f"[ERR] Thread error: {exc}")
+                    
+        # Setelah semua thread di dalam batch selesai, lakukan Bulk Commit
+        if results_to_update:
+            self.reasoning_service.bulk_update_mm_results(results_to_update)
+            
+        print(f"✅ [Batch {batch_num}/{total_batches}] Selesai mengeksekusi {len(results_to_update)} baris.")
+        
+        return {"status": "success", "processed_batch": len(results_to_update)}

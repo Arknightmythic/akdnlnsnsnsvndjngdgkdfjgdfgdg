@@ -136,3 +136,48 @@ Memerintahkan Celery Worker untuk langsung menghapus log audit & akses yang keda
 ### Peringatan `Substantial drift` dari Celery
 
 Peringatan `Substantial drift from celery@...` adalah **normal** jika Worker dijalankan di mesin lokal (WIB / UTC+7) namun terhubung ke Redis di server berzona waktu UTC. Proses tetap berjalan dengan benar.
+
+
+---
+### 👷‍♂️ Menjalankan Background Workers (Celery)
+
+Aplikasi ini menggunakan Celery dan Redis untuk memproses tugas-tugas berat (*asynchronous tasks*) di latar belakang secara paralel. 
+
+> **⚠️ Prasyarat:** Pastikan server **Redis** sudah menyala dan dapat diakses sebelum menjalankan *worker*.
+
+Buka terminal/Command Prompt baru untuk masing-masing *worker* (berada di *root directory* proyek), lalu jalankan perintah berikut:
+
+**1. Matching Worker**
+Bertugas mengeksekusi komputasi pencocokan data jutaan baris menggunakan DuckDB dan Polars.
+```bash
+python -m celery -A processing.celery_app worker -Q matching_queue --pool=solo --loglevel=info
+
+```
+
+**2. Reasoning Worker**
+Bertugas memproses antrean AI (LLM) untuk memberikan alasan otomatis pada data yang tidak cocok (*Micro-batching*).
+
+```bash
+python -m celery -A reasoning.celery_app worker -Q reasoning_queue --pool=solo --loglevel=info
+
+```
+
+**3. Audit Worker**
+Bertugas mencatat seluruh riwayat aktivitas dan *event* sistem ke dalam database secara *non-blocking*.
+
+```bash
+python -m celery -A audit.celery_app worker -Q audit_queue --pool=solo --loglevel=info
+
+```
+
+**4. General Processing Queue**
+Bertugas menangani tugas-tugas *default* atau proses umum lainnya yang tidak masuk ke dalam antrean spesifik di atas.
+
+```bash
+python -m celery -A processing.celery_app worker -Q celery --pool=solo --loglevel=info
+
+```
+
+*Catatan: Argumen `--pool=solo` digunakan untuk kompatibilitas OS Windows. Jika aplikasi di-deploy ke server Linux/Production (seperti Ubuntu atau container Docker), Anda bisa menghapus `--pool=solo` dan menggantinya dengan argumen concurrency (contoh: `--concurrency=4`) agar worker dapat memanfaatkan multi-core CPU secara maksimal.*
+
+```

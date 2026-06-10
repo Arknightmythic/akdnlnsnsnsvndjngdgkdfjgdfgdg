@@ -2,17 +2,18 @@ from .matching_service import MatchingService
 
 class MatchFileHandler:
 
-    def __init__(self, minio_client, bucket_name, starrocks_engine):
+    def __init__(self, minio_client, bucket_name, starrocks_engine, grade_rules):
 
         self.matching_service = MatchingService(
             engine=starrocks_engine,
             minio_client=minio_client,
-            bucket_name=bucket_name
+            bucket_name=bucket_name,
+            grade_rules=grade_rules
         )
 
         print("Match Handler Initialized")
 
-    async def process_file(self, file_id: str):
+    def process_file(self, file_id: str):
         print("Processing data...")
 
         uploaded_file = self.matching_service.starrocks_service.get_uploaded_file(file_id)
@@ -35,12 +36,11 @@ class MatchFileHandler:
         else:
             raise Exception(f"Unsupported grade: {grade}")
 
-        # Panggil orchestrator Celery dari modul AI Reasoning
-        try:
-            from reasoning.tasks import trigger_rows_for_file
-            trigger_rows_for_file.delay(file_id)
-            print(f"Enqueued reasoning orchestrator for file {file_id}")
-        except Exception as e:
-            print(f"Failed to enqueue reasoning orchestrator for {file_id}: {e}")
+        # try:
+        #     from reasoning.tasks import trigger_rows_for_file
+        #     trigger_rows_for_file.delay(file_id)
+        #     print(f"Enqueued reasoning orchestrator for file {file_id}")
+        # except Exception as e:
+        #     print(f"Failed to enqueue reasoning orchestrator for {file_id}: {e}")
 
         return result

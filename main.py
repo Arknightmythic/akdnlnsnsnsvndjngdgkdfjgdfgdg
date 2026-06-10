@@ -12,12 +12,13 @@ from ingestion.routes import UploadFileRoutes
 from ingestion.starrocks_connection import engine
 
 from processing.routes import MatchFileRoutes
+from processing.repository import StarrocksService
+from reasoning.handler import ReasoningHandler
 from retrieval.routes import RetrieveDataRoutes
 from dotenv import load_dotenv
 
 load_dotenv()
 # from reasoning.routes import ReasoningRoutes
-# from reasoning.handler import ReasoningHandler
 
 class SynchronoAPI:
     def __init__(self):
@@ -53,11 +54,17 @@ class SynchronoAPI:
         app.state.starrocks_engine = engine
         print(">>> StarRocks connection opened")
 
-        # app.state.reasoning_handler = ReasoningHandler(
-        #     app.state.starrocks_engine,
-        #     app.state.minio_client,
-        #     app.state.raw_bucket
-        # )
+        app.state.reasoning_handler = ReasoningHandler(
+            app.state.starrocks_engine
+            # app.state.minio_client,
+            # app.state.raw_bucket
+        )
+
+        starrocks_service = StarrocksService(engine)
+
+        app.state.grade_rules = starrocks_service.load_grade_rules()
+
+        print(f">>> Loaded {len(app.state.grade_rules)} grading rules")
 
         yield
 
