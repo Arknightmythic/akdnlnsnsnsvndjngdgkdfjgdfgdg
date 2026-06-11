@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-agent = ChatbotHandler()
+agent = ChatbotHandler("ollama:gemma4:31b", "https://ollama.com")
 
 def test_agent_fix_field():
     question = "Field mana yang paling perlu diperbaiki?"
