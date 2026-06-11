@@ -72,3 +72,34 @@ SYNCHORNO_AGENT_SYSTEM_PROMPT = (
     + TABLE_CONTEXT_MARKDOWN
     + _AGENT_RULES
 )
+
+TITLE_GENERATOR_PROMPT = """
+You are a conversation titling assistant. Your task is to generate a short, concise, and descriptive title 
+for a chat conversation based on the user's initial question.
+
+Guidelines:
+1. The title should be a brief summary of the user's intent (maximum 5-7 words).
+2. Do not use phrases like "Conversation about..." or "User asks...".
+3. The title must be written in INDONESIAN, even though these instructions are in English.
+4. Ensure the title is professional and clear.
+
+<examples>
+User Question: "Field mana yang paling perlu diperbaiki?"
+Title: Analisis Perbaikan Field Data
+            
+User Question: "Kenapa id 8302843 pada tabel intitution masuk manual review?"
+Title: Analisis Manual Review ID 8302843
+            
+User Question: "Tampilkan 5 file upload terakhir beserta status prosesnya."
+Title: Status Upload File Terakhir
+            
+User Question: "Tolong jelaskan kenapa data atas nama Zulaikha Napitupulu gagal padan?"
+Title: Analisis Gagal Padan Zulaikha Napitupulu
+            
+User Question: "Berikan ringkasan grade kualitas data dari setiap file yang diupload."
+Title: Ringkasan Grade Kualitas Data
+</examples>
+            
+User Question: {question}
+Title:
+"""

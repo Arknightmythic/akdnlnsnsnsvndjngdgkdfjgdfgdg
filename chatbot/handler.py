@@ -3,7 +3,7 @@ from langchain.chat_models import init_chat_model
 from langchain.messages import SystemMessage, HumanMessage, AIMessageChunk
 from langchain_core.prompts import PromptTemplate
 from langchain.agents import create_agent
-from langchain.agents.middleware import SummarizationMiddleware, ToolRetryMiddleware, TodoListMiddleware, PIIMiddleware
+from langchain.agents.middleware import SummarizationMiddleware, ToolRetryMiddleware, TodoListMiddleware
 from dotenv import load_dotenv
 from opik.integrations.langchain import OpikTracer
 from pydantic import BaseModel, Field
@@ -12,7 +12,7 @@ import json
 import asyncio
 
 from chatbot.tools import get_table_names, get_table_detail, run_query
-from util.chatbot_prompts.prompts import SYNCHORNO_AGENT_SYSTEM_PROMPT
+from util.chatbot_prompts.prompts import SYNCHORNO_AGENT_SYSTEM_PROMPT, TITLE_GENERATOR_PROMPT
 from chatbot.database import StarRocksSaver, mysql_db as db
 from chatbot.middlewares import PIIMiddlewareSynchrono
 
@@ -32,38 +32,7 @@ class TitleGenerator:
             
         ).with_structured_output(TitleOutput)
 
-        self._prompt = PromptTemplate.from_template(
-            """
-            You are a conversation titling assistant. Your task is to generate a short, concise, and descriptive title 
-            for a chat conversation based on the user's initial question.
-
-            Guidelines:
-            1. The title should be a brief summary of the user's intent (maximum 5-7 words).
-            2. Do not use phrases like "Conversation about..." or "User asks...".
-            3. The title must be written in INDONESIAN, even though these instructions are in English.
-            4. Ensure the title is professional and clear.
-
-            <examples>
-            User Question: "Field mana yang paling perlu diperbaiki?"
-            Title: Analisis Perbaikan Field Data
-            
-            User Question: "Kenapa id 8302843 pada tabel intitution masuk manual review?"
-            Title: Analisis Manual Review ID 8302843
-            
-            User Question: "Tampilkan 5 file upload terakhir beserta status prosesnya."
-            Title: Status Upload File Terakhir
-            
-            User Question: "Tolong jelaskan kenapa data atas nama Zulaikha Napitupulu gagal padan?"
-            Title: Analisis Gagal Padan Zulaikha Napitupulu
-            
-            User Question: "Berikan ringkasan grade kualitas data dari setiap file yang diupload."
-            Title: Ringkasan Grade Kualitas Data
-            </examples>
-            
-            User Question: {question}
-            Title:
-            """
-        )
+        self._prompt = PromptTemplate.from_template(TITLE_GENERATOR_PROMPT)
         self._chain = self._prompt | self._model
         
     def generate_title(self, question: str)-> TitleOutput:
@@ -71,7 +40,7 @@ class TitleGenerator:
         return results
         
         
-class SynchronoAgent:
+class ChatbotHandler:
     def __init__(self, model: str, base_url: str):
         self._model = init_chat_model(
             model=model,
@@ -192,8 +161,9 @@ class SynchronoAgent:
                 user_id=user_id
             )
         db.insert_message(conversation_id=conversation_id, content=content, role=role)
+
 async def main():
-    agent = SynchronoAgent("ollama:gemma4:31b", "https://ollama.com")
+    agent = ChatbotHandler("ollama:gemma4:31b", "https://ollama.com")
     async for data in agent.stream("coba14", "Tampilkan 3 data dari institution beserta NIK-nya."):
         print(data)
 

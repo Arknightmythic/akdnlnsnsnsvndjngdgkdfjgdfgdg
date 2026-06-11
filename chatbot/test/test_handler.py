@@ -2,12 +2,12 @@ import pytest
 import time
 import uuid
 import re
-from chatbot.handler import SynchronoAgent
+from chatbot.handler import ChatbotHandler
 from dotenv import load_dotenv
 
 load_dotenv()
 
-agent = SynchronoAgent()
+agent = ChatbotHandler()
 
 def test_agent_fix_field():
     question = "Field mana yang paling perlu diperbaiki?"

@@ -135,6 +135,38 @@ class MySQLDatabase:
             print(f"Error checking conversation existence: {e}")
             return False
 
+    def get_conversation(self, conversation_id: str) -> dict | None:
+        try:
+            self._ensure_tables()
+            with engine.connect() as conn:
+                result = conn.execute(
+                    text(
+                        """
+                        SELECT * FROM `conversation`
+                        WHERE `id` = :cid LIMIT 1
+                        """
+                    ),
+                    {"cid": conversation_id},
+                ).fetchone()
+                if result:
+                    return dict(result)
+                return None
+        except Exception as e:
+            print(f"Error fetching conversation: {e}")
+            return None
+
+    def get_conversations(self, user_id: str) -> list[dict]:
+        try:
+            self._ensure_tables()
+            with engine.connect() as conn:
+                query = "SELECT * FROM `conversation` WHERE `user_id` = :uid"
+                params = {"uid": user_id}
+                rows = conn.execute(text(query), params).fetchall()
+                return [dict(row) for row in rows]
+        except Exception as e:
+            print(f"Error fetching conversations: {e}")
+            return []
+
     def update_conversation_timestamp(self, conversation_id: str) -> None:
         try:
             self._ensure_tables()
@@ -152,3 +184,4 @@ class MySQLDatabase:
                 conn.commit()
         except Exception as e:
             print(f"Error updating conversation timestamp: {e}")
+
