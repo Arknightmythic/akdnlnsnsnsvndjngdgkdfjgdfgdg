@@ -93,6 +93,7 @@ class ChatbotHandler:
         return response["messages"][-1].text
     
     async def stream(self, user_id: str, conversation_id: str, question: str, enable_pii: bool = True):
+        self._update_conversation(user_id=user_id, conversation_id=conversation_id, role="human", content=question)
         _current_middleware = self._middleware.copy()
         if enable_pii:
             _current_middleware.extend([
@@ -148,17 +149,16 @@ class ChatbotHandler:
         }
         yield f"data: {json.dumps(title_payload)}\n\n"
         
-        self._update_conversation(user_id=user_id, conversation_id=conversation_id, role="human", content=question)
         self._update_conversation(user_id=user_id, conversation_id=conversation_id, role="ai", content=final_response)
         
     def _update_conversation(self, user_id: str, conversation_id: str, role: str, content: str):
-        if db.conversation_exists:
+        if db.conversation_exists(user_id=user_id, conversation_id=conversation_id):
             db.update_conversation_timestamp(conversation_id=conversation_id)
         else:
             db.insert_conversation(
                 conversation_id=conversation_id,
                 title=self._generator_result.title,
-                user_id=user_id
+                user_id=user_id,
             )
         db.insert_message(conversation_id=conversation_id, content=content, role=role)
 

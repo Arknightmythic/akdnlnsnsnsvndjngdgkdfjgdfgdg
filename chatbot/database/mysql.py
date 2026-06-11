@@ -60,23 +60,27 @@ class MySQLDatabase:
             conn.execute(text(
                 """
                 CREATE TABLE IF NOT EXISTS `conversation` (
-                    `id` STRING PRIMARY KEY,
+                    `id` STRING NOT NULL,
                     `user_id` STRING NOT NULL,
                     `title` STRING NOT NULL,
-                    `created_at` DATETIME NOT NULL DEFAULT NOW(),
-                    `updated_at` DATETIME NOT NULL DEFAULT NOW()
+                    `created_at` DATETIME NOT NULL,
+                    `updated_at` DATETIME NOT NULL
                 ) ENGINE=OLAP
+                PRIMARY KEY(`id`)
+                PROPERTIES ("replication_num" = "1")
                 """
             ))
             conn.execute(text(
                 """
                 CREATE TABLE IF NOT EXISTS `message` (
-                    `id` STRING PRIMARY KEY,
+                    `id` STRING NOT NULL,
                     `conversation_id` STRING NOT NULL,
                     `role` STRING NOT NULL,
                     `content` STRING NOT NULL,
-                    `created_at` DATETIME NOT NULL DEFAULT NOW()
+                    `created_at` DATETIME NOT NULL
                 ) ENGINE=OLAP
+                PRIMARY KEY(`id`)
+                PROPERTIES ("replication_num" = "1")
                 """
             ))
             conn.commit()
@@ -135,15 +139,16 @@ class MySQLDatabase:
             print(f"Error checking conversation existence: {e}")
             return False
 
-    def get_conversation(self, conversation_id: str) -> dict | None:
+    def get_messages(self, conversation_id: str) -> dict:
         try:
             self._ensure_tables()
             with engine.connect() as conn:
                 result = conn.execute(
                     text(
                         """
-                        SELECT * FROM `conversation`
-                        WHERE `id` = :cid LIMIT 1
+                        SELECT * FROM `message`
+                        WHERE `conversation_id` = :cid
+                        ORDER BY `created_at` ASC
                         """
                     ),
                     {"cid": conversation_id},

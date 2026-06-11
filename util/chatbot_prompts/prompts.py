@@ -99,6 +99,9 @@ Title: Analisis Gagal Padan Zulaikha Napitupulu
 User Question: "Berikan ringkasan grade kualitas data dari setiap file yang diupload."
 Title: Ringkasan Grade Kualitas Data
 </examples>
+
+Return format:
+{{"title": "Generated Title"}}
             
 User Question: {question}
 Title:
