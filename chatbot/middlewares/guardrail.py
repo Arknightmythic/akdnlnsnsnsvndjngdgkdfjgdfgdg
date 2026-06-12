@@ -3,7 +3,6 @@ from langchain.messages import AIMessage, HumanMessage
 from langchain_core.prompts import PromptTemplate
 from langchain.chat_models import init_chat_model
 from langgraph.runtime import Runtime
-from langgraph.graph import END
 from pydantic import BaseModel, Field
 from typing import Optional
 from dotenv import load_dotenv
@@ -29,7 +28,7 @@ class PromptInjectionGuardrail(AgentMiddleware):
         ).with_structured_output(PromptInjectionGuardrailOutput)
         self._chain = self._prompt |  self._model
 
-    @hook_config(can_jump_to=["end"])
+    @hook_config(can_jump_to=["end", "model"])
     def before_agent(self, state: AgentState, runtime: Runtime)-> AgentState:
         messages = state.get("messages")
         message = messages[-1]
@@ -38,8 +37,7 @@ class PromptInjectionGuardrail(AgentMiddleware):
             try:
                 results: PromptInjectionGuardrailOutput = self._chain.invoke({"user_query": message})
                 if results.is_dangerous:
-                    return {"messages": [AIMessage(results.reason)], "jump_to": END}
+                    return {"jump_to": "end", "messages": [AIMessage(results.reason)]}
             except Exception as e:
-                print(f"Guardrail Error: {e}")
-                return state 
-        return state
+                return {"jump_to": "end", "messages": [AIMessage("An error occurred while checking the security of your query. Please try again later.")]}
+        return {"jump_to": "model"}
