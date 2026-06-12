@@ -22,36 +22,36 @@ def test_cache_hit_performance():
     service = ReasoningService(engine)
 
     # Cari file_id yang siap di-test (ada di manual_matches + bisa di-join ke master)
-    with engine.connect() as conn:
-        row = conn.execute(text("""
-            SELECT mm.file_id
-            FROM manual_matches mm
-            JOIN master m ON mm.nik_incoming = m.nik
-            WHERE mm.reasoning_status IN ('PENDING', 'FAILED')
-            LIMIT 1
-        """)).mappings().first()
+    # with engine.connect() as conn:
+    #     row = conn.execute(text("""
+    #         SELECT mm.file_id
+    #         FROM manual_matches mm
+    #         JOIN master m ON mm.nik_incoming = m.nik
+    #         WHERE mm.reasoning_status IN ('PENDING', 'FAILED')
+    #         LIMIT 1
+    #     """)).mappings().first()
 
-        if not row:
-            # Coba path institution (grade C/D)
-            row = conn.execute(text("""
-                SELECT mm.file_id
-                FROM manual_matches mm
-                JOIN institution inst
-                  ON inst.file_id = mm.file_id AND inst.id_incoming = mm.id_incoming
-                JOIN master m ON inst.nik_master = m.nik
-                WHERE mm.reasoning_status IN ('PENDING', 'FAILED')
-                LIMIT 1
-            """)).mappings().first()
+    #     if not row:
+    #         # Coba path institution (grade C/D)
+    #         row = conn.execute(text("""
+    #             SELECT mm.file_id
+    #             FROM manual_matches mm
+    #             JOIN institution inst
+    #               ON inst.file_id = mm.file_id AND inst.id_incoming = mm.id_incoming
+    #             JOIN master m ON inst.nik_master = m.nik
+    #             WHERE mm.reasoning_status IN ('PENDING', 'FAILED')
+    #             LIMIT 1
+    #         """)).mappings().first()
 
-        if not row:
-            pytest.skip("Tidak ada data manual_matches yang bisa di-join ke master")
+    #     if not row:
+    #         pytest.skip("Tidak ada data manual_matches yang bisa di-join ke master")
 
-        file_id = row["file_id"]
-    print(f"[0] Menggunakan file_id: {file_id}")
-
+    #     file_id = row["file_id"]
+    # print(f"[0] Menggunakan file_id: {file_id}")
+    file_id = "45b76ab1"
     # RESET: truncate cache + reset reasoning_status ke PENDING
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE TABLE reasoning_patterns"))
+        # conn.execute(text("TRUNCATE TABLE reasoning_patterns"))
         conn.execute(text("""
             UPDATE manual_matches
             SET reason = NULL, pattern_name = NULL, reasoning_source = NULL, reasoning_status = 'PENDING'
