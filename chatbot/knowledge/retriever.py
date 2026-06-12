@@ -7,7 +7,7 @@ import os
 
 load_dotenv()
 
-MODEL_BASE_URL = os.getenv("MODEL_BASE_URL")
+MODEL_BASE_URL_LOCAL = os.getenv("MODEL_BASE_URL_LOCAL", "https://ollama.com")
 QDRANT_URL = os.getenv("QDRANT_URL")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME")
 
@@ -15,14 +15,15 @@ class Retriever:
     def __init__(self):
         self._qdrant_client = QdrantClient(host="172.16.12.98")
         self._embedding = OllamaEmbeddings(
-            base_url=MODEL_BASE_URL,
-            model="qwen3-embedding:8b"
+            base_url=MODEL_BASE_URL_LOCAL,
+            model="qwen3-embedding:8b",
         )
         self._sparse_embedding = FastEmbedSparse()
         self._vector_store = QdrantVectorStore.from_existing_collection(
             embedding=self._embedding,
             sparse_embedding=self._sparse_embedding,
             url=QDRANT_URL,
+            collection_name=COLLECTION_NAME,
             retrieval_mode=RetrievalMode.HYBRID,
         )
 

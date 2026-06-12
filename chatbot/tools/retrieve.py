@@ -6,18 +6,20 @@ from chatbot.knowledge import Retriever
 
 load_dotenv()
 
-retiever = Retriever()
-
 @tool
-def retrieve_data(query: str, k: int = 5)-> list[Document]:
-    """_summary_
+def retrieve(query: str, k: int = 5) -> list[Document]:
+    """
+    A tool used to retrieve cached SQL queries and their answers from Qdrant. 
+    It searches for semantically similar questions that have already been answered and cached. 
+    Using this tool avoids the need to execute the full SQL generation graph for frequently asked questions.
 
     Args:
-        query (str): _description_
-        k (int, optional): _description_. Defaults to 5.
+        query (str): The user's specific question or search keywords.
+        k (int, optional): The maximum number of cached queries to retrieve. Default is 3.
 
     Returns:
-        list[Document]: _description_
+        list[Document]: A list of RAG result documents. Each document's page_content contains <question>, <answer>, and <query> tags.
     """
-    results = retiever.hybrid_search(query=query, k=k)
+    retriever = Retriever()
+    results = retriever.hybrid_search(query=query, k=k)
     return results
