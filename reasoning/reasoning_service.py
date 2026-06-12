@@ -56,6 +56,10 @@ class ReasoningService:
     # ─────────────────────────────────────────────
 
     def _format_date(self, d):
+        if not d:
+            return "null"
+        if isinstance(d, str):
+            return d
         return d.strftime("%d-%m-%Y") if isinstance(d, date) else "null"
 
     # ─────────────────────────────────────────────
@@ -125,15 +129,15 @@ class ReasoningService:
         """Ganti nilai aktual dalam reason dengan placeholder agar bisa di-cache."""
         tpl = reason
 
-        def replace_ci(t, search, placeholder):
-            if not search or str(search).strip().lower() in {"null", "none", "", "kosong"}:
-                return t
-            return re.sub(re.escape(str(search)), placeholder, t, flags=re.IGNORECASE)
+        def _replace_val(original_text, search, placeholder):
+            if search is None or str(search).strip() == "" or str(search).lower() in ["null", "none", "kosong", "empty"]:
+                return original_text
+            return re.sub(re.escape(str(search)), placeholder, original_text, flags=re.IGNORECASE)
 
-        tpl = replace_ci(tpl, row.get("nama_lengkap"), "{incoming.nama_lengkap}")
-        tpl = replace_ci(tpl, row.get("master_nama_lengkap"), "{master.nama_lengkap}")
-        tpl = replace_ci(tpl, row.get("tempat_lahir"), "{incoming.tempat_lahir}")
-        tpl = replace_ci(tpl, row.get("master_tempat_lahir"), "{master.tempat_lahir}")
+        tpl = _replace_val(tpl, row.get("nama_lengkap"), "{incoming.nama_lengkap}")
+        tpl = _replace_val(tpl, row.get("master_nama_lengkap"), "{master.nama_lengkap}")
+        tpl = _replace_val(tpl, row.get("tempat_lahir"), "{incoming.tempat_lahir}")
+        tpl = _replace_val(tpl, row.get("master_tempat_lahir"), "{master.tempat_lahir}")
 
         tgl_in = self._format_date(row.get("tanggal_lahir"))
         tgl_ms = self._format_date(row.get("master_tanggal_lahir"))
@@ -142,8 +146,8 @@ class ReasoningService:
         if tgl_ms and tgl_ms != "null":
             tpl = re.sub(re.escape(tgl_ms), "{master.tanggal_lahir}", tpl, flags=re.IGNORECASE)
 
-        tpl = replace_ci(tpl, row.get("nama_ibu"), "{incoming.nama_ibu}")
-        tpl = replace_ci(tpl, row.get("master_nama_ibu"), "{master.nama_ibu}")
+        tpl = _replace_val(tpl, row.get("nama_ibu"), "{incoming.nama_ibu}")
+        tpl = _replace_val(tpl, row.get("master_nama_ibu"), "{master.nama_ibu}")
         return tpl
 
     def _fill_template(self, template: str, row: dict) -> str:
@@ -152,7 +156,7 @@ class ReasoningService:
         
         def _fmt_fill(val):
             v = str(val).strip()
-            return "KOSONG" if v.lower() in {"none", "null", "nan", ""} else v
+            return "EMPTY" if v.lower() in {"none", "null", "nan", "", "kosong"} else v
             
         r = r.replace("{incoming.nama_lengkap}", _fmt_fill(row.get("nama_lengkap")))
         r = r.replace("{master.nama_lengkap}", _fmt_fill(row.get("master_nama_lengkap")))
@@ -379,22 +383,38 @@ class ReasoningService:
 
                 else:
                     # ── CACHE MISS → LLM ──
-                    def _fmt(val):
-                        v = str(val).strip()
-                        return "KOSONG" if v.lower() in {"none", "null", "nan", ""} else v
+                    def _get_val(k):
+                        val = row.get(k)
+                        if val is None or str(val).strip() == "" or str(val).lower() in ["none", "null", "nan", "kosong"]:
+                            return "EMPTY"
+                        return str(val)
 
-                    human_prompt = f"ID: {mm_id}\n\nInstitution (Incoming):\n"
-                    human_prompt += f"  Nama Lengkap   : {_fmt(row['nama_lengkap'])}\n"
-                    human_prompt += f"  Tempat Lahir   : {_fmt(row['tempat_lahir'])}\n"
-                    human_prompt += f"  Tanggal Lahir  : {_fmt(self._format_date(row['tanggal_lahir']))}\n"
-                    human_prompt += f"  Jenis Kelamin  : {_fmt(row['jenis_kelamin'])}\n"
-                    human_prompt += f"  Nama Ibu       : {_fmt(row['nama_ibu'])}\n\n"
+                    human_prompt = f"ID: {mm_id}\n\nThe following columns have DIFFERENCES or are EMPTY. Do not mention any other columns.\n\nInstitution (Incoming):\n"
+                    statuses = pattern_info["statuses"]
+                    if statuses.get("nama_lengkap") != "SAMA":
+                        human_prompt += f"  Full Name      : {_get_val('nama_lengkap')}\n"
+                    if statuses.get("tempat_lahir") != "SAMA":
+                        human_prompt += f"  Place of Birth : {_get_val('tempat_lahir')}\n"
+                    if statuses.get("tanggal_lahir") != "SAMA":
+                        tgl_in_f = self._format_date(row['tanggal_lahir'])
+                        human_prompt += f"  Date of Birth  : {'EMPTY' if not tgl_in_f or tgl_in_f == 'null' else tgl_in_f}\n"
+                    if statuses.get("jenis_kelamin") != "SAMA":
+                        human_prompt += f"  Gender         : {_get_val('jenis_kelamin')}\n"
+                    if statuses.get("nama_ibu") != "SAMA":
+                        human_prompt += f"  Mother's Name  : {_get_val('nama_ibu')}\n\n"
+                        
                     human_prompt += "Master:\n"
-                    human_prompt += f"  Nama Lengkap   : {_fmt(row['master_nama_lengkap'])}\n"
-                    human_prompt += f"  Tempat Lahir   : {_fmt(row['master_tempat_lahir'])}\n"
-                    human_prompt += f"  Tanggal Lahir  : {_fmt(self._format_date(row['master_tanggal_lahir']))}\n"
-                    human_prompt += f"  Jenis Kelamin  : {_fmt(row['master_jenis_kelamin'])}\n"
-                    human_prompt += f"  Nama Ibu       : {_fmt(row['master_nama_ibu'])}\n"
+                    if statuses.get("nama_lengkap") != "SAMA":
+                        human_prompt += f"  Full Name      : {_get_val('master_nama_lengkap')}\n"
+                    if statuses.get("tempat_lahir") != "SAMA":
+                        human_prompt += f"  Place of Birth : {_get_val('master_tempat_lahir')}\n"
+                    if statuses.get("tanggal_lahir") != "SAMA":
+                        tgl_ms_f = self._format_date(row['master_tanggal_lahir'])
+                        human_prompt += f"  Date of Birth  : {'EMPTY' if not tgl_ms_f or tgl_ms_f == 'null' else tgl_ms_f}\n"
+                    if statuses.get("jenis_kelamin") != "SAMA":
+                        human_prompt += f"  Gender         : {_get_val('master_jenis_kelamin')}\n"
+                    if statuses.get("nama_ibu") != "SAMA":
+                        human_prompt += f"  Mother's Name  : {_get_val('master_nama_ibu')}\n"
 
                     messages = [
                         SystemMessage(content=self.system_prompt.strip()),
