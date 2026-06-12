@@ -214,7 +214,7 @@ class RetrieveRepository:
             AND i.match_result = mr.match_result_id
             AND i.match_result IN (1,4)
             ORDER BY i.match_score DESC
-            LIMIT 30
+            LIMIT 10
         """)
 
         unmatch_query = text("""
@@ -229,7 +229,7 @@ class RetrieveRepository:
             AND i.match_result = mr.match_result_id
             AND i.match_result IN (3,5)
             ORDER BY i.match_score ASC
-            LIMIT 30
+            LIMIT 10
         """)
 
         with self.engine.connect() as conn:
