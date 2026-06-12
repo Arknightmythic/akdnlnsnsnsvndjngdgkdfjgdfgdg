@@ -9,16 +9,16 @@ sys.path.append(str(project_root))
 from chatbot.knowledge.retriever import Retriever
 
 def main():
-    print("🔄 Menginisialisasi Retriever (koneksi ke Qdrant & Ollama)...")
+    print("Menginisialisasi Retriever (koneksi ke Qdrant & Ollama)...")
     try:
         retriever = Retriever()
     except Exception as e:
-        print(f"❌ Gagal inisialisasi Retriever: {e}")
+        print(f"Gagal inisialisasi Retriever: {e}")
         return
 
     # Pertanyaan simulasi (mirip dengan yang ada di FAQ)
     query = "Bagaimana cara melihat jumlah data padan batch terakhir?"
-    print(f"\n🔍 Mencari jawaban untuk: '{query}'")
+    print(f"\nMencari jawaban untuk: '{query}'")
     
     try:
         # Panggil hybrid search (minta 3 hasil teratas)
@@ -43,10 +43,10 @@ def main():
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(output_data, f, ensure_ascii=False, indent=4)
             
-        print(f"\n✅ Pencarian sukses! Detail lengkap disimpan ke: {output_path.name}")
+        print(f"\nPencarian sukses! Detail lengkap disimpan ke: {output_path.name}")
         
     except Exception as e:
-        print(f"❌ Terjadi kesalahan saat mencari: {e}")
+        print(f"Terjadi kesalahan saat mencari: {e}")
         import traceback
         traceback.print_exc()
 

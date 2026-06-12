@@ -50,8 +50,8 @@ def test_parse_to_json(md_file_path: str, output_json_path: str):
     with open(output_json_path, "w", encoding="utf-8") as f:
         json.dump(documents_to_ingest, f, indent=4, ensure_ascii=False)
         
-    print(f"✅ Berhasil mem-parsing {len(documents_to_ingest)} dokumen.")
-    print(f"📂 Hasil JSON dapat dilihat di: {output_json_path}")
+    print(f"Berhasil mem-parsing {len(documents_to_ingest)} dokumen.")
+    print(f"Hasil JSON dapat dilihat di: {output_json_path}")
 
 if __name__ == "__main__":
     # Tentukan path file markdown yang akan dites (faq.md)
