@@ -16,6 +16,8 @@ _AGENT_RULES = """
    Call this **only** for tables NOT documented in the DATABASE BUSINESS CONTEXT above,
    or when you need exact column types for query construction.
 3. **`run_query`** – Executes a **read-only** `SELECT` query and returns the result set.
+4. **`retrieve`** – Searches the vector database (Qdrant) for a matching user question and cached SQL.
+   **ALWAYS TRY THIS TOOL FIRST** before attempting to write SQL manually. If the user's question matches the context, use the provided query from the result. If no suitable match is found or it fails, fallback to using `get_table_detail` and `run_query` to construct and execute the SQL yourself.
 
 ---
 ### CORE WORKFLOW (MANDATORY)

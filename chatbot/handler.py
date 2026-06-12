@@ -11,11 +11,11 @@ import os
 import json
 import asyncio
 
-from chatbot.tools import get_table_names, get_table_detail, run_query
+from chatbot.tools import get_table_names, get_table_detail, run_query, retrieve
 from util.chatbot_prompts.prompts import SYNCHORNO_AGENT_SYSTEM_PROMPT, TITLE_GENERATOR_PROMPT
 from chatbot.database import StarRocksSaver, mysql_db as db
 from chatbot.middlewares import PIIMiddlewareSynchrono
-
+ 
 load_dotenv()
 
 opik_tracer = OpikTracer()
@@ -48,7 +48,7 @@ class ChatbotHandler:
             temperature=0,
         )
         self._system_prompt = SystemMessage(SYNCHORNO_AGENT_SYSTEM_PROMPT)
-        self._tools = [get_table_names, get_table_detail, run_query]
+        self._tools = [get_table_names, get_table_detail, run_query, retrieve]
         self._middleware = [
                     SummarizationMiddleware(
                         model=self._model,

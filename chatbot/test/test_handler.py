@@ -54,19 +54,33 @@ def test_agent_manual_review():
 def test_agent_short_term_memory():
     thread_id = str(uuid.uuid4())
     
-    question1 = "nama saya Maulana"
+    # Turn 1: Give personal info
+    question1 = "Halo, perkenalkan nama saya BUDI dari PT SUKSES ."
     t0 = time.time()
-    agent.ask(thread_id, question1)
+    response1 = agent.ask(thread_id, question1)
     elapsed1 = time.time() - t0
     
-    question2 = "inget gk siapa nama saya?"
+    # Turn 2: Distract the AI with a database task
+    question2 = "Tolong cekin 2 file yang status prosesnya error dong."
     t0 = time.time()
-    response = agent.ask(thread_id, question2)
+    response2 = agent.ask(thread_id, question2)
     elapsed2 = time.time() - t0
+
+    # Turn 3: Ask the AI to recall the personal info from Turn 1
+    question3 = "Oh ya, ngomong-ngomong tadi saya dari perusahaan mana ya? Dan siapa nama saya?"
+    t0 = time.time()
+    response3 = agent.ask(thread_id, question3)
+    elapsed3 = time.time() - t0
     
-    print(f"\n[short_term_memory] Response ({elapsed1:.1f}s + {elapsed2:.1f}s):\n{response}")
-    assert response, "Got empty response."
-    assert "maulana" in response.lower(), f"AI forgot the user's name from earlier in the conversation. Response: {response}"
+    print(f"\n[short_term_memory] Response 3 ({elapsed1:.1f}s + {elapsed2:.1f}s + {elapsed3:.1f}s):\n{response3}")
+    
+    assert response3, "Got empty response."
+    
+    # Check if AI remembers the name
+    assert "budi" in response3.lower(), f"AI forgot the user's name! Response: {response3}"
+    
+    # Check if AI remembers the company
+    assert "sukses" in response3.lower(), f"AI forgot the user's company! Response: {response3}"
 
 def test_agent_uploaded_files():
     question = "Tampilkan 5 file upload terakhir beserta status prosesnya."
@@ -191,3 +205,17 @@ def test_agent_missing_table():
     error_keywords = ["tidak ditemukan", "tidak ada", "error", "maaf", "tidak menemukan"]
     found = any(kw.lower() in response.lower() for kw in error_keywords)
     assert found, f"AI didn't handle missing table properly: {response[:300]}"
+
+def test_agent_cached_pending_files():
+    question = "Bisa tolong cekin 10 antrean file yang sekarang masih berstatus diproses dan belum beres?"
+    t0 = time.time()
+    thread_id = str(uuid.uuid4())
+    response = agent.ask(thread_id, question)
+    elapsed = time.time() - t0
+    
+    print(f"\n[cached_pending_files] Response ({elapsed:.1f}s):\n{response}")
+    assert response, "Got empty response."
+    
+    status_keywords = ["belum selesai", "pemrosesannya", "file", "antrean", "diproses"]
+    found = any(kw.lower() in response.lower() for kw in status_keywords)
+    assert found, f"AI didn't provide information about pending files correctly: {response[:300]}"

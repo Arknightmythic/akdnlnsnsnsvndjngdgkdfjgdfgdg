@@ -9,6 +9,10 @@ _pycache_/
 *.py[codz]
 *$py.class
 
+
+# tests
+*/tests/*.json    
+
 # C extensions
 *.so
 
@@ -158,6 +162,7 @@ activemq-data/
 
 # Environments
 .env
+.ENV
 .envrc
 .venv
 env/
@@ -233,3 +238,5 @@ _marimo_/
 
 .venv/
 uv.lock
+chatbot/knowledge/tests/retriever_results.json
+chatbot/knowledge/tests/parsed_result.json
