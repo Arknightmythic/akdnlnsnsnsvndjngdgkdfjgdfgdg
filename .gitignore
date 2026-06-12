@@ -235,7 +235,6 @@ _marimo_/
 .streamlit/secrets.toml
 
 .venv/
-<<<<<<< HEAD
 uv.lock
 chatbot/knowledge/tests/parsed_result.json
 chatbot/knowledge/tests/retriever_results.json
@@ -245,19 +244,22 @@ code_handle_ai/
 output_tests/
 
 reasoning/tests/output_tests/cache_hit_result_e2e.json
-=======
-uv.lock.ENV
->>>>>>> 66dfb89 (chore: update .gitignore to exclude additional environment files and test artifacts)
 .ENV
 chatbot/knowledge/tests/parsed_result.json
 .gitignore
 chatbot/knowledge/tests/retriever_results.json
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 27787fc (chore: remove cached test folders and enforce gitignore)
 
 # output
 code_handle_ai/
 output_tests/
 
 reasoning/tests/output_tests/cache_hit_result_e2e.json
+<<<<<<< HEAD
 =======
 >>>>>>> 66dfb89 (chore: update .gitignore to exclude additional environment files and test artifacts)
+=======
+>>>>>>> 27787fc (chore: remove cached test folders and enforce gitignore)
