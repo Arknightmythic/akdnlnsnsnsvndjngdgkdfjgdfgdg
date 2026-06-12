@@ -14,12 +14,12 @@ from ingestion.starrocks_connection import engine
 from processing.routes import MatchFileRoutes
 from processing.repository import StarrocksService
 from reasoning.handler import ReasoningHandler
+from reasoning.routes import ReasoningRoutes
 from retrieval.routes import RetrieveDataRoutes
 from chatbot.routes import ChatbotRoutes
 from dotenv import load_dotenv
 
 load_dotenv()
-# from reasoning.routes import ReasoningRoutes
 
 class SynchronoAPI:
     def __init__(self):

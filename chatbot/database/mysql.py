@@ -139,11 +139,11 @@ class MySQLDatabase:
             print(f"Error checking conversation existence: {e}")
             return False
 
-    def get_messages(self, conversation_id: str) -> dict:
+    def get_messages(self, conversation_id: str) -> list[dict] | None:
         try:
             self._ensure_tables()
             with engine.connect() as conn:
-                result = conn.execute(
+                rows = conn.execute(
                     text(
                         """
                         SELECT * FROM `message`
@@ -152,12 +152,12 @@ class MySQLDatabase:
                         """
                     ),
                     {"cid": conversation_id},
-                ).fetchone()
-                if result:
-                    return dict(result)
-                return None
+                ).fetchall()
+                if not rows:
+                    return None
+                return [dict(row._mapping) for row in rows]
         except Exception as e:
-            print(f"Error fetching conversation: {e}")
+            print(f"Error fetching messages: {e}")
             return None
 
     def get_conversations(self, user_id: str) -> list[dict]:
@@ -167,7 +167,7 @@ class MySQLDatabase:
                 query = "SELECT * FROM `conversation` WHERE `user_id` = :uid"
                 params = {"uid": user_id}
                 rows = conn.execute(text(query), params).fetchall()
-                return [dict(row) for row in rows]
+                return [dict(row._mapping) for row in rows]
         except Exception as e:
             print(f"Error fetching conversations: {e}")
             return []

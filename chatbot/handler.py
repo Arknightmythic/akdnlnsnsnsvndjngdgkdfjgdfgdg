@@ -67,6 +67,7 @@ class ChatbotHandler:
         )
         self._memory.setup()
         self.generator = TitleGenerator(model, base_url)
+        self._generator_result = None
 
     def ask(self, conversation_id: str, question: str, enable_pii: bool = True)-> str:
         _current_middleware = self._middleware.copy()
@@ -142,12 +143,12 @@ class ChatbotHandler:
         }
         yield f"data: {json.dumps(end_payload)}\n\n"
         
-        self._generator_result = self.generator.generate_title(question=question)
-        title_payload = {
-            "step": "TITLE",
-            "content": self._generator_result.title
-        }
-        yield f"data: {json.dumps(title_payload)}\n\n"
+        if self._generator_result:
+            title_payload = {
+                "step": "TITLE",
+                "content": self._generator_result.title
+            }
+            yield f"data: {json.dumps(title_payload)}\n\n"
         
         self._update_conversation(user_id=user_id, conversation_id=conversation_id, role="ai", content=final_response)
         
@@ -155,6 +156,8 @@ class ChatbotHandler:
         if db.conversation_exists(user_id=user_id, conversation_id=conversation_id):
             db.update_conversation_timestamp(conversation_id=conversation_id)
         else:
+            print(f"Role: {role}, Content: {content}")
+            self._generator_result = self.generator.generate_title(question=content)
             db.insert_conversation(
                 conversation_id=conversation_id,
                 title=self._generator_result.title,
@@ -164,7 +167,7 @@ class ChatbotHandler:
 
 async def main():
     agent = ChatbotHandler("ollama:gemma4:31b", "https://ollama.com")
-    async for data in agent.stream("coba14", "Tampilkan 3 data dari institution beserta NIK-nya."):
+    async for data in agent.stream("mausneg","coba14", "Tampilkan 3 data dari institution beserta NIK-nya."):
         print(data)
 
 if __name__ == "__main__":

@@ -48,12 +48,12 @@ class ChatbotRoutes:
                 raise HTTPException(status_code=500, detail=str(e))
             
         @self.router.get("/conversations/{conversation_id}")
-        async def get_conversation(conversation_id: str):
+        async def get_messages(conversation_id: str):
             try:
-                conversation = db.get_conversation(conversation_id)
-                if not conversation:
-                    raise HTTPException(status_code=404, detail="Conversation not found")
-                return conversation
+                messages = db.get_messages(conversation_id)
+                if not messages:
+                    raise HTTPException(status_code=404, detail="Messages not found")
+                return messages
             except Exception as e:
                 print(f"Error: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
