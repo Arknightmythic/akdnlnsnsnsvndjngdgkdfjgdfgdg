@@ -14,15 +14,9 @@ COLLECTION_NAME = os.getenv("COLLECTION_NAME")
 class Retriever:
     def __init__(self):
         self._qdrant_client = QdrantClient(host="172.16.12.98")
-        api_key = os.getenv("OLLAMA_API_KEY")
-        client_kwargs = {}
-        if api_key:
-            client_kwargs["headers"] = {"Authorization": f"Bearer {api_key}"}
-            
         self._embedding = OllamaEmbeddings(
             base_url=MODEL_BASE_URL_LOCAL,
             model="qwen3-embedding:8b",
-            client_kwargs=client_kwargs
         )
         self._sparse_embedding = FastEmbedSparse()
         self._vector_store = QdrantVectorStore.from_existing_collection(

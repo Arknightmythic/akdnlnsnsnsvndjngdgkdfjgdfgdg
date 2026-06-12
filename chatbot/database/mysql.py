@@ -1,12 +1,24 @@
 from sqlalchemy import text
 from typing import Any
 from dotenv import load_dotenv
-import os
 import uuid
+import re
 
 from ingestion.starrocks_connection import engine
 
 load_dotenv()
+
+EXLUDED_TABLES = [
+    "access_event",
+    "audit_event",
+    "checkpoint",
+    "conversation",
+    "matching_queries",
+    "message",
+    "retention_action",
+    "retention_policy",
+    "write",
+]
 
 class MySQLDatabase:
     def get_table_names(self)-> list[str]:
@@ -14,11 +26,14 @@ class MySQLDatabase:
             with engine.connect() as conn:
                 cursor_result  = conn.execute(text("SHOW TABLES;"))
                 table_names = [result[0] for result in cursor_result.fetchall()]
-                return table_names
+                allowed_tables = [table for table in table_names if table not in EXLUDED_TABLES]
+                return allowed_tables
         except Exception as e:
             print(f"Error: {e}")
             
     def get_table_schema(self, table_name: str)-> str:
+        if table_name in EXLUDED_TABLES:
+            return f"Not allowed to read table {table_name}"
         try:
             with engine.connect() as conn:
                 cursor_result =  conn.execute((text(f"SHOW CREATE TABLE `{table_name}`")))
@@ -40,6 +55,8 @@ class MySQLDatabase:
             print(f"Error: {e}")
             
     def execute(self, query: str)-> Any:
+        if query in EXLUDED_TABLES:
+            return f"Not allowed to execute with table {re.findall(r'FROM\s+`?(\w+)`?', query, re.IGNORECASE)[0]}"
         try:
             with engine.connect() as conn:
                 cursor_result = conn.execute(text(query))
