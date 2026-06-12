@@ -229,14 +229,12 @@ marimo/_lsp/
 __marimo__/
 _marimo_/
 
-
 *.db
 *.db*
 *.pdf
 .streamlit/secrets.toml
 
-
 .venv/
 uv.lock
-chatbot/knowledge/tests/retriever_results.json
 chatbot/knowledge/tests/parsed_result.json
+chatbot/knowledge/tests/retriever_results.json
