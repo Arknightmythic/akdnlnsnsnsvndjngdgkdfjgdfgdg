@@ -232,4 +232,8 @@ _marimo_/
 
 
 .venv/
-uv.lock
+uv.lock.ENV
+.ENV
+chatbot/knowledge/tests/parsed_result.json
+.gitignore
+chatbot/knowledge/tests/retriever_results.json
