@@ -15,7 +15,7 @@ import asyncio
 from chatbot.tools import get_table_names, get_table_detail, run_query, retrieve
 from chatbot.prompts import SYNCHRONO_AGENT_SYSTEM_PROMPT, TITLE_GENERATOR_PROMPT
 from chatbot.database import StarRocksSaver, mysql_db as db
-from chatbot.middlewares import PIIMiddlewareSynchrono, PromptInjectionGuardrail
+from chatbot.middlewares import PIIMiddleware, PromptInjectionGuardrail
  
 load_dotenv()
 
@@ -76,7 +76,7 @@ class ChatbotHandler:
         _current_middleware = self._middleware.copy()
         if enable_pii:
             _current_middleware.extend([
-                PIIMiddlewareSynchrono(pii_type="nik", detector=r"\b\d{16}\b", strategy="mask")
+                PIIMiddleware(pii_type="nik", detector=r"\b\d{16}\b", strategy="mask")
             ])
 
         _agent = create_agent(
