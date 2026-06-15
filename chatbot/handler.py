@@ -102,7 +102,6 @@ class ChatbotHandler:
                     "configurable": {"thread_id": conversation_id}
                 }
             ):
-            print(f"[METADATA]: {metadata}\n")
             
             if metadata["ls_integration"] == "langchain_chat_model" and metadata["langgraph_node"] == "PromptInjectionGuardrail.before_agent":
                 continue
