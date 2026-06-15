@@ -10,7 +10,6 @@ class RetrieveDataHandler:
     PAGE_SIZE_SYNCHRONIZED = 15
 
     def __init__(self, engine, parquet_loader = None, redis=None):
-        print("HANDLER REDIS:", redis)
         self.repository = RetrieveRepository(engine)
         self.parquet_loader = parquet_loader
         self.redis = redis
