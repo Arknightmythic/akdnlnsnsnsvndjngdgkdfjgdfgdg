@@ -103,7 +103,7 @@ class ChatbotHandler:
                 }
             ):
             
-            if metadata["ls_integration"] == "langchain_chat_model":
+            if metadata["ls_integration"] == "langchain_chat_model" and metadata["langgraph_node"] == "PromptInjectionGuardrail.before_agent":
                 continue
 
             data = {
