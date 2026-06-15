@@ -6,7 +6,6 @@ import json
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from reasoning.reasoning_service import ReasoningService
 
 def test_cache_hit_performance():

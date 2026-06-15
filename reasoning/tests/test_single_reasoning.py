@@ -8,8 +8,6 @@ import pytest
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 

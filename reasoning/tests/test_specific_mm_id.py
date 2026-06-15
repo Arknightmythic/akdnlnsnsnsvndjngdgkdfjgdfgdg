@@ -3,9 +3,6 @@ import sys
 import json
 from sqlalchemy import create_engine
 
-# Tambahkan root directory ke sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
 from dotenv import load_dotenv
 from reasoning.handler import ReasoningHandler
 
