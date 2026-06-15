@@ -76,10 +76,33 @@ class RetrieveDataRoutes:
                 engine=request.app.state.starrocks_engine,
                 parquet_loader=ParquetLoader(
                     request.app.state.minio_client,
-                    request.app.state.raw_bucket
-                )
+                    request.app.state.raw_bucket,
+                    redis=request.app.state.redis
+                ),
+                redis=request.app.state.redis
             )
 
-            return handler.get_preview_data(
+            return await handler.get_preview_data(
                 file_id=file_id,
+            )
+        
+        @self.router.get("/manual-review-data")
+        async def manual_review_data(
+            request: Request,
+            file_id: str = Query(...),
+            page: int = Query(..., ge=1),
+        ):
+
+            handler = RetrieveDataHandler(
+                engine=request.app.state.starrocks_engine,
+                parquet_loader=ParquetLoader(
+                    request.app.state.minio_client,
+                    request.app.state.raw_bucket,
+                    redis=request.app.state.redis
+                ),
+                redis=request.app.state.redis
+            )
+
+            return await handler.get_manual_review_data(
+                file_id=file_id, page=page
             )

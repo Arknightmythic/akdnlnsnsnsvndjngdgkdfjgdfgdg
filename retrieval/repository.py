@@ -5,6 +5,10 @@ class RetrieveRepository:
         self.engine = engine
 
     def get_graded_files(self, page, page_size):
+        """
+        Retrieve paginated uploaded file records along with grading and
+        processing status information.
+        """
         offset = (page - 1) * page_size
 
         count_query = text("""
@@ -54,6 +58,10 @@ class RetrieveRepository:
         grade,
         sync_status
     ):
+        """
+        Retrieve paginated synchronization file records with optional filtering
+        by institution, grade, and synchronization status.
+        """
         offset = (page - 1) * page_size
 
         where_conditions = []
@@ -126,6 +134,10 @@ class RetrieveRepository:
         start_date,
         end_date
     ):
+        """
+        Retrieve paginated synchronization history records with summary counts of match,
+        manual match, and unmatch statistics.
+        """
         offset = (page - 1) * page_size
 
         where_conditions = []
@@ -191,6 +203,10 @@ class RetrieveRepository:
         return [dict(row) for row in rows], total_rows
     
     def get_minio_path(self, file_id: str):
+        """
+        Retrieve the MinIO path and synchronization state associated with the
+        specified file identifier.
+        """
         q = text("""
             SELECT minio_path, is_sync, sync_status
             FROM uploaded_files
@@ -201,6 +217,9 @@ class RetrieveRepository:
             return conn.execute(q, {"file_id": file_id}).mappings().first()
         
     def get_completed_data(self, file_id: str):
+        """
+        Retrieve top matched and unmatched records ordered by match score for the specified file.
+        """
         match_query = text("""
             SELECT
                 i.id_incoming,
@@ -214,7 +233,7 @@ class RetrieveRepository:
             AND i.match_result = mr.match_result_id
             AND i.match_result IN (1,4)
             ORDER BY i.match_score DESC
-            LIMIT 30
+            LIMIT 10
         """)
 
         unmatch_query = text("""
@@ -229,7 +248,7 @@ class RetrieveRepository:
             AND i.match_result = mr.match_result_id
             AND i.match_result IN (3,5)
             ORDER BY i.match_score ASC
-            LIMIT 30
+            LIMIT 10
         """)
 
         with self.engine.connect() as conn:
@@ -248,7 +267,73 @@ class RetrieveRepository:
             "unmatch": [dict(row) for row in unmatches]
         }
         
+    def get_manual_review_data(self, file_id: str, page, page_size):
+        """
+        Retrieve paginated institution records that require manual review for a
+        specific synchronization file, including match details and review reasons.
+        """
+
+        offset = (page - 1) * page_size
+
+        count_query = text("""
+            SELECT COUNT(*) AS total
+            FROM (
+                SELECT
+                    i.id_incoming,
+                    i.nik_master,
+                    i.match_score,
+                    mr.match_result_name,
+                    i.file_id,
+                    mm.reason
+                FROM institution i
+                JOIN ref_match_results mr ON i.match_result = mr.match_result_id
+                JOIN manual_matches mm ON i.id_incoming = mm.id_incoming
+                WHERE i.file_id = :file_id 
+                AND i.match_result = 2
+                AND i.match_result = mr.match_result_id
+                AND i.id_incoming = mm.id_incoming
+            ) s
+        """)
+
+        manual_review_query = text("""
+            SELECT
+                i.id_incoming,
+                i.nik_master,
+                i.match_score,
+                mr.match_result_name,
+                i.file_id,
+                mm.reason
+            FROM institution i
+            JOIN ref_match_results mr ON i.match_result = mr.match_result_id
+            JOIN manual_matches mm ON i.id_incoming = mm.id_incoming AND i.file_id = mm.file_id
+            WHERE i.file_id = :file_id 
+            AND i.match_result = 2
+            AND i.match_result = mr.match_result_id
+            AND i.id_incoming = mm.id_incoming
+            ORDER BY i.match_score ASC, i.id_incoming ASC
+            LIMIT :limit
+            OFFSET :offset
+        """)
+
+
+        with self.engine.connect() as conn:
+            total_rows = conn.execute(count_query,{"file_id": file_id}).scalar()
+            rows = conn.execute(
+                manual_review_query,
+                {
+                    "file_id": file_id,
+                    "limit": page_size,
+                    "offset": offset
+                }
+            ).mappings().all()
+
+        return [dict(row) for row in rows], total_rows
+        
     def get_master_by_niks(self, niks):
+        """
+        Retrieve master records for the specified NIKs and return them as a
+        dictionary keyed by NIK.
+        """
         if not niks:
             return {}
 
