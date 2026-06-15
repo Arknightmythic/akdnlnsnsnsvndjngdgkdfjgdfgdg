@@ -323,9 +323,38 @@ class ReasoningService:
                 {"status": status, "id": mm_id},
             )
 
+            # Jika status berubah menjadi FAILED, cek apakah semua row sudah tidak PENDING/PROCESSING
+            if status == "FAILED":
+                row_file = conn.execute(
+                    text("SELECT file_id FROM manual_matches WHERE id = :id"),
+                    {"id": mm_id}
+                ).mappings().first()
+                if row_file and row_file["file_id"]:
+                    file_id = row_file["file_id"]
+                    count_res = conn.execute(
+                        text(
+                            "SELECT COUNT(*) as c FROM manual_matches "
+                            "WHERE file_id = :file_id AND reasoning_status IN ('PENDING', 'PROCESSING')"
+                        ),
+                        {"file_id": file_id}
+                    ).mappings().first()
+                    
+                    if count_res and count_res["c"] == 0:
+                        conn.execute(
+                            text("UPDATE uploaded_files SET sync_status = 2 WHERE file_id = :file_id"),
+                            {"file_id": file_id}
+                        )
+
     def _update_mm_result(self, mm_id: int, reason: str, pattern_name: str, source: str):
         """Tulis hasil reasoning ke manual_matches."""
         with self.engine.begin() as conn:
+            # Dapatkan file_id terlebih dahulu
+            row_file = conn.execute(
+                text("SELECT file_id FROM manual_matches WHERE id = :id"),
+                {"id": mm_id}
+            ).mappings().first()
+            file_id = row_file["file_id"] if row_file else None
+
             conn.execute(
                 text(
                     "UPDATE manual_matches "
@@ -335,6 +364,23 @@ class ReasoningService:
                 ),
                 {"reason": reason, "pname": pattern_name, "source": source, "id": mm_id},
             )
+
+            # Jika file_id ditemukan, cek apakah semua row untuk file_id ini sudah tidak PENDING/PROCESSING
+            if file_id:
+                count_res = conn.execute(
+                    text(
+                        "SELECT COUNT(*) as c FROM manual_matches "
+                        "WHERE file_id = :file_id AND reasoning_status IN ('PENDING', 'PROCESSING')"
+                    ),
+                    {"file_id": file_id}
+                ).mappings().first()
+                
+                # Jika sudah tidak ada yang PENDING/PROCESSING, update uploaded_files
+                if count_res and count_res["c"] == 0:
+                    conn.execute(
+                        text("UPDATE uploaded_files SET sync_status = 2 WHERE file_id = :file_id"),
+                        {"file_id": file_id}
+                    )
 
     def process_reasoning(self, file_id: str, dry_run: bool = False, limit: int = None):
         start_total = time.perf_counter()
