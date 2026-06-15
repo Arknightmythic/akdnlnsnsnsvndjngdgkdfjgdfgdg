@@ -192,7 +192,7 @@ class MatchingServiceV2:
             })
 
             if best_match["result"] == 2:
-                sync_status = 2
+                sync_status = 1
                 incoming_row = (partition.filter(pl.col("id") == incoming_row_id).to_dicts()[0])
 
                 manual_review_rows.append({
@@ -225,8 +225,8 @@ class MatchingServiceV2:
             all_results.extend(results)
             all_manual_review_rows.extend(manual_review_rows)
 
-            if sync_status == 2:
-                final_sync_status = 2
+            if sync_status == 1:
+                final_sync_status = 1
 
             print(
                 f"Partition {idx}: "
