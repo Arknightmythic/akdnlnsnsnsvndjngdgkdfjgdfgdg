@@ -1,5 +1,5 @@
 from langchain.agents.middleware import AgentMiddleware, AgentState, hook_config
-from langchain.messages import AIMessage, HumanMessage
+from langchain.messages import AIMessageChunk, HumanMessage
 from langchain_core.prompts import PromptTemplate
 from langchain.chat_models import init_chat_model
 from langgraph.runtime import Runtime
@@ -37,7 +37,7 @@ class PromptInjectionGuardrail(AgentMiddleware):
             try:
                 results: PromptInjectionGuardrailOutput = self._chain.invoke({"user_query": last_message})
                 if results.is_dangerous:
-                    return {"jump_to": "end", "messages": [AIMessage(results.answer)]}
+                    return {"jump_to": "end", "messages": [AIMessageChunk(results.answer)]}
             except Exception as e:
-                return {"jump_to": "end", "messages": [AIMessage("An error occurred while checking the security of your query. Please try again later.")]}
+                return {"jump_to": "end", "messages": [AIMessageChunk("An error occurred while checking the security of your query. Please try again later.")]}
         return {"jump_to": "model"}
