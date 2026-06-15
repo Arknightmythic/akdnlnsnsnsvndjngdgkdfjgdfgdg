@@ -1,10 +1,18 @@
 from .matching_service import MatchingService
+from .matching_service_new import MatchingServiceV2
 
 class MatchFileHandler:
 
     def __init__(self, minio_client, bucket_name, starrocks_engine, grade_rules):
 
         self.matching_service = MatchingService(
+            engine=starrocks_engine,
+            minio_client=minio_client,
+            bucket_name=bucket_name,
+            grade_rules=grade_rules
+        )
+
+        self.matching_service_new = MatchingServiceV2(
             engine=starrocks_engine,
             minio_client=minio_client,
             bucket_name=bucket_name,
@@ -23,24 +31,9 @@ class MatchFileHandler:
 
         grade = uploaded_file["grade"]
 
-        if grade == 1:
-            result = self.matching_service.process_grade_a(file_id)
-        elif grade == 2:
-            result = self.matching_service.process_grade_b(file_id)
-        elif grade == 3:
-            result = self.matching_service.process_grade_c(file_id)
-        elif grade == 4:
-            result = self.matching_service.process_grade_d(file_id)
-        elif grade == 5:
-            result = self.matching_service.process_grade_e(file_id)
-        else:
+        if grade < 1 or grade > 5:
             raise Exception(f"Unsupported grade: {grade}")
-
-        # try:
-        #     from reasoning.tasks import trigger_rows_for_file
-        #     trigger_rows_for_file.delay(file_id)
-        #     print(f"Enqueued reasoning orchestrator for file {file_id}")
-        # except Exception as e:
-        #     print(f"Failed to enqueue reasoning orchestrator for {file_id}: {e}")
+        
+        result = self.matching_service_new.process_matching_job(file_id, grade)
 
         return result
