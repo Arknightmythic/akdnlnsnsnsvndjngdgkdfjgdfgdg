@@ -86,7 +86,6 @@ class ChatbotHandler:
                 middleware=_current_middleware,
                 checkpointer=self._memory
             )
-        print(_agent.get_graph().draw_mermaid())
         start_payload = {
             "step": "START",              
             "content": "",           
@@ -103,6 +102,10 @@ class ChatbotHandler:
                     "configurable": {"thread_id": conversation_id}
                 }
             ):
+            
+            if metadata["ls_integration"] == "langchain_chat_model":
+                continue
+
             data = {
                 "step": chunk.__class__.__name__,
                 "content": chunk.text,
@@ -135,7 +138,6 @@ class ChatbotHandler:
         if db.conversation_exists(user_id=user_id, conversation_id=conversation_id):
             db.update_conversation_timestamp(conversation_id=conversation_id)
         else:
-            print(f"Role: {role}, Content: {content}")
             self._generator_result = self.generator.generate_title(question=content)
             db.insert_conversation(
                 conversation_id=conversation_id,
@@ -143,12 +145,3 @@ class ChatbotHandler:
                 user_id=user_id,
             )
         db.insert_message(conversation_id=conversation_id, content=content, role=role)
-
-async def main():
-    agent = ChatbotHandler("ollama:gemma4:31b", "https://ollama.com")
-    async for data in agent.stream("mausneg","coba14", "Tampilkan 3 data dari institution beserta NIK-nya."):
-        print(data)
-
-if __name__ == "__main__":
-    asyncio.run(main())
-    
