@@ -150,8 +150,7 @@ Buka terminal/Command Prompt baru untuk masing-masing *worker* (berada di *root 
 **1. Matching Worker**
 Bertugas mengeksekusi komputasi pencocokan data jutaan baris menggunakan DuckDB dan Polars.
 ```bash
-python -m celery -A processing.celery_app worker -Q matching_queue --pool=solo --loglevel=info
-
+python -m celery -A worker.celery_app worker -Q matching_queue --pool=solo --loglevel=info
 ```
 
 **2. Reasoning Worker**
