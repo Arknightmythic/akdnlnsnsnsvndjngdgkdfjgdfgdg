@@ -4,27 +4,25 @@ from sqlalchemy import text
 class StarrocksService:
     def __init__(self, engine):
         self.engine = engine
-        self.sync_status_in_progress_query = text("""
-            UPDATE uploaded_files
-            SET
-            sync_status = 1
-            WHERE file_id = :file_id
+        print("Starrocks Service Initialized!")
+    
+    def load_matching_query(self, grade):
+        query = text("""
+            SELECT matching_query
+            FROM matching_queries
+            WHERE grade_code = :grade
         """)
-        self.sync_status_query = text("""
-            UPDATE uploaded_files
-            SET
-            is_sync = 1,
-            sync_status = :sync_status,
-            matching_task_status = 'SUCCESS'
-            WHERE file_id = :file_id
-        """)
-        self.manual_review_insert_query = text("""
-            INSERT INTO manual_matches (file_id, id_incoming, nik_incoming, nama_incoming, 
-                                        tempat_lahir_incoming, area_incoming, tanggal_lahir_incoming, nama_ibu_incoming)
-            VALUES (:file_id, :id_incoming, :nik_incoming, :nama_incoming,
-                    :tempat_lahir_incoming, :area_incoming, :tanggal_lahir_incoming, :nama_ibu_incoming)
-        """)
-        self.get_grade_rules_query = text("""
+
+        with self.engine.connect() as conn:
+            result = conn.execute(query,{"grade": grade}).mappings().first()
+
+        if result is None:
+            raise ValueError(f"No matching query found for grade {grade}")
+
+        return result["matching_query"]
+
+    def load_grade_rules(self):
+        query = text("""
             SELECT
                 grade_code,
                 auto_missing_max,
@@ -34,11 +32,8 @@ class StarrocksService:
                 review_score_max
             FROM grade_rules
         """)
-        print("Starrocks Service Initialized!")
-
-    def load_grade_rules(self):
         with self.engine.connect() as conn:
-            rows = conn.execute(self.get_grade_rules_query).mappings().all()
+            rows = conn.execute(query).mappings().all()
 
         return {
             row["grade_code"]: dict(row)
@@ -157,12 +152,17 @@ class StarrocksService:
         )
     
     def set_sync_status_in_progress(self, file_id):
+        query = text("""
+            UPDATE uploaded_files
+            SET
+            sync_status = 1
+            WHERE file_id = :file_id
+        """)
         with self.engine.begin() as conn:
-            conn.execute(self.sync_status_in_progress_query,{
-                    "file_id": file_id
-                })
+            conn.execute(query,{"file_id": file_id})
     
     def insert_institution(self, insert_query, results, matched_time_query, matching_time_ms, file_id):
+        print(f"Institution rows: {len(results)}")
         with self.engine.begin() as conn:
             conn.execute(insert_query,results)
             conn.execute(matched_time_query,{
@@ -171,15 +171,42 @@ class StarrocksService:
                 })
             
     def set_sync_complete(self, file_id, sync_status):
+        query = text("""
+            UPDATE uploaded_files
+            SET
+            is_sync = 1,
+            sync_status = :sync_status
+            WHERE file_id = :file_id
+        """)
         with self.engine.begin() as conn:
-            conn.execute(self.sync_status_query,{
+            conn.execute(query,{
                     "sync_status": sync_status,
                     "file_id": file_id
                 })
             
     def insert_manual_review(self, rows):
+        print(f"Manual review rows: {len(rows)}")
+
+        query = text("""
+            INSERT INTO manual_matches (file_id, id_incoming, nik_incoming, nama_incoming, 
+                                        tempat_lahir_incoming, area_incoming, tanggal_lahir_incoming, nama_ibu_incoming)
+            VALUES (:file_id, :id_incoming, :nik_incoming, :nama_incoming,
+                    :tempat_lahir_incoming, :area_incoming, :tanggal_lahir_incoming, :nama_ibu_incoming)
+        """)
+
         with self.engine.begin() as conn:
-            conn.execute(self.manual_review_insert_query, rows)
+            for i in range(0, len(rows), 5000):
+                batch = rows[i:i + 5000]
+
+                print(
+                    f"Inserting manual review batch "
+                    f"{i//5000 + 1}, size={len(batch)}"
+                )
+
+                conn.execute(
+                    query,
+                    batch
+                )
 
     def set_matching_task_info(self, file_id: str, task_id: str, status: str):
         query = text("""
