@@ -166,10 +166,12 @@ class RetrieveRepository:
             JOIN ref_grades rg ON uf.grade = rg.grade_id
             JOIN ref_sync_statuses rs ON uf.sync_status = rs.sync_status_id
             {where_clause}
+            AND uf.sync_status = 1
         """)
 
         data_query = text(f"""
             SELECT
+                uf.file_id,
                 uf.institution_name,
                 uf.original_filename,
                 uf.upload_timestamp,
