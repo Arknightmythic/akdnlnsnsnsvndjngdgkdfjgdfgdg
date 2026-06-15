@@ -15,7 +15,7 @@ import asyncio
 from chatbot.tools import get_table_names, get_table_detail, run_query, retrieve
 from chatbot.prompts import SYNCHRONO_AGENT_SYSTEM_PROMPT, TITLE_GENERATOR_PROMPT
 from chatbot.database import StarRocksSaver, mysql_db as db
-from chatbot.middlewares import PIIMiddlewareSynchrono, PromptInjectionGuardrail
+from chatbot.middlewares import PIIMiddleware, PromptInjectionGuardrail, ToolHandlingMiddleware
  
 load_dotenv()
 
@@ -59,6 +59,7 @@ class ChatbotHandler:
                     ToolRetryMiddleware(),
                     TodoListMiddleware(),
                     PromptInjectionGuardrail(),
+                    ToolHandlingMiddleware.monitor,
         ]
         self._memory = StarRocksSaver(
             url=f"{os.getenv('STARROCKS_HOST')}:{os.getenv('STARROCKS_PORT')}",
@@ -71,12 +72,33 @@ class ChatbotHandler:
         self.generator = TitleGenerator(model, base_url)
         self._generator_result = None
     
+    def ask(self, thread_id: str, question: str, enable_pii: bool = True) -> str:
+        self._update_conversation(user_id=thread_id, conversation_id=thread_id, role="human", content=question) 
+        _current_middleware = self._middleware.copy()
+        if enable_pii:
+            _current_middleware.extend([
+                PIIMiddleware(pii_type="nik", detector=r"\b\d{16}\b", strategy="mask")
+            ])
+        _agent = create_agent(
+                model=self._model,
+                system_prompt=self._system_prompt,
+                tools=self._tools,
+                middleware=_current_middleware,
+                checkpointer=self._memory
+            )
+        response = _agent.invoke(
+            {"messages": [HumanMessage(question)]}, 
+            config={"thread_id": thread_id, "callbacks": [opik_tracer]}
+        )
+        self._update_conversation(user_id=thread_id, conversation_id=thread_id, role="ai", content=response)
+        return response["messages"][-1].text
+    
     async def stream(self, user_id: str, conversation_id: str, question: str, enable_pii: bool = True):
         self._update_conversation(user_id=user_id, conversation_id=conversation_id, role="human", content=question)
         _current_middleware = self._middleware.copy()
         if enable_pii:
             _current_middleware.extend([
-                PIIMiddlewareSynchrono(pii_type="nik", detector=r"\b\d{16}\b", strategy="mask")
+                PIIMiddleware(pii_type="nik", detector=r"\b\d{16}\b", strategy="mask")
             ])
 
         _agent = create_agent(

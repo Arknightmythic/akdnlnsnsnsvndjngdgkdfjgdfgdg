@@ -54,7 +54,7 @@ class RunQueryBuilder:
             else:
                 return {"query_result": "No results returned."}
         except Exception as e:
-            return {"error_message": str(e)}
+            return {"error_message": str(e), "query_result": "No results returned due to error."}
         
     def _is_dangerous(self, state: ExecutionState):
         if state.get("is_dangerous"):

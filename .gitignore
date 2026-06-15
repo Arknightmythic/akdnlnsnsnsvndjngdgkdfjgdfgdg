@@ -235,10 +235,21 @@ _marimo_/
 .streamlit/secrets.toml
 
 .venv/
+.ENV
 uv.lock
+chatbot/knowledge/tests/parsed_result.json
+chatbot/knowledge/tests/retriever_results.json
+# output
+code_handle_ai/
+output_tests/
+
+reasoning/tests/output_tests/cache_hit_result_e2e.json
+EAD
+.ENV
 chatbot/knowledge/tests/parsed_result.json
 chatbot/knowledge/tests/retriever_results.json
 
 # output
 code_handle_ai/
 output_tests/
+
