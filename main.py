@@ -19,6 +19,7 @@ from retrieval.routes import RetrieveDataRoutes
 from chatbot.routes import ChatbotRoutes
 from dotenv import load_dotenv
 from reasoning.routes import ReasoningRoutes
+from redis.asyncio import Redis
 
 load_dotenv()
 
@@ -39,6 +40,13 @@ class SynchronoAPI:
     @asynccontextmanager
     async def _lifespan(self, app: FastAPI):
         print(">>> Starting up ...")
+
+        app.state.redis = Redis.from_url(
+            os.getenv("REDIS_URL"),
+            decode_responses=True
+        )
+
+        print(">>> Redis initialized")
 
         app.state.minio_client = Minio(
             os.getenv("MINIO_ENDPOINT"),
@@ -69,6 +77,7 @@ class SynchronoAPI:
         print(f">>> Loaded {len(app.state.grade_rules)} grading rules")
 
         yield
+        await app.state.redis.close()
 
         engine.dispose()
         print(">>> StarRocks connection closed")
