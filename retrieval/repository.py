@@ -356,6 +356,7 @@ class RetrieveRepository:
             SET match_result = 4
             WHERE id_incoming = :id_incoming
             AND file_id = :file_id
+            AND match_result = 2
         """)
 
         with self.engine.begin() as conn:
@@ -375,6 +376,7 @@ class RetrieveRepository:
             SET match_result = 5
             WHERE id_incoming = :id_incoming
             AND file_id = :file_id
+            AND match_result = 2
         """)
 
         with self.engine.begin() as conn:
@@ -400,6 +402,7 @@ class RetrieveRepository:
             UPDATE uploaded_files
             SET sync_status = 3
             WHERE file_id = :file_id
+            AND sync_status = 2
         """)
 
         with self.engine.begin() as conn:
@@ -410,3 +413,64 @@ class RetrieveRepository:
             "institution_updated": r1.rowcount,
             "file_updated": r2.rowcount
         }
+    
+    def get_summary_dashboard(self):
+        query1 = text("""
+            SELECT
+                COUNT(*) AS total_files,
+
+                SUM(CASE WHEN is_sync = 0 THEN 1 ELSE 0 END) AS total_pending,
+
+                SUM(CASE
+                    WHEN is_sync = 1 AND sync_status = 3
+                    THEN 1 ELSE 0
+                END) AS total_completed,
+
+                SUM(CASE
+                    WHEN is_sync = 1 AND sync_status = 1
+                    THEN 1 ELSE 0
+                END) AS total_in_progress,
+
+                SUM(CASE
+                    WHEN is_sync = 1 AND sync_status = 2
+                    THEN 1 ELSE 0
+                END) AS total_awaiting_action,
+
+                SUM(CASE WHEN grade = 1 THEN 1 ELSE 0 END) AS total_grade_a,
+                SUM(CASE WHEN grade = 2 THEN 1 ELSE 0 END) AS total_grade_b,
+                SUM(CASE WHEN grade = 3 THEN 1 ELSE 0 END) AS total_grade_c,
+                SUM(CASE WHEN grade = 4 THEN 1 ELSE 0 END) AS total_grade_d,
+                SUM(CASE WHEN grade = 5 THEN 1 ELSE 0 END) AS total_grade_e
+                    
+            FROM uploaded_files
+        """)
+    
+        query2 = text("""
+            SELECT
+                uf.institution_name,
+                uf.original_filename,
+                uf.upload_timestamp,
+                ss.status_code AS sync_status,
+                rg.grade_code AS grade
+
+            FROM uploaded_files uf
+
+            INNER JOIN ref_sync_statuses ss
+                ON ss.sync_status_id = uf.sync_status
+
+            INNER JOIN ref_grades rg
+                ON rg.grade_id = uf.grade
+
+            WHERE uf.is_sync = 1
+            AND DATE(uf.upload_timestamp) = CURRENT_DATE()
+            ORDER BY uf.upload_timestamp DESC
+        """)
+
+        with self.engine.begin() as conn:
+            summary = conn.execute(query1).mappings().first()
+            recent_sync_files = conn.execute(query2).mappings().all()
+        return {
+        "summary": dict(summary) if summary else {},
+        "recent_sync_files": [dict(row) for row in recent_sync_files]
+    }
+

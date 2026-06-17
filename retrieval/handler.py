@@ -389,3 +389,11 @@ class RetrieveDataHandler:
             "success": True,
             "updated_rows": updated
         }
+    
+    def get_summary_dashboard(self):
+        """
+        Retrieve a paginated list of graded files..
+        """
+        data = self.repository.get_summary_dashboard()
+
+        return {"data":data}
