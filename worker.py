@@ -29,4 +29,4 @@ celery_app.conf.beat_schedule = {
 }
 
 # Autodiscover akan mencari file tasks.py di dalam folder 'audit'
-celery_app.autodiscover_tasks(["audit", "processing"])
+celery_app.autodiscover_tasks(["audit", "processing", "retrieval"])
