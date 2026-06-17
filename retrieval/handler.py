@@ -4,16 +4,25 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 import json
 from .enum import MatchStatus
+from retrieval.tasks import generate_export_csv
+from datetime import datetime, timedelta
+import zoneinfo
+
+# TAMBAHKAN IMPORT INI UNTUK MENGATASI ERROR PYLANCE
+from sqlalchemy import text  
 
 class RetrieveDataHandler:
     PAGE_SIZE_GRADED = 10
     PAGE_SIZE_MANUAL_DATA = 10
     PAGE_SIZE_SYNCHRONIZED = 15
 
-    def __init__(self, engine, parquet_loader = None, redis=None):
+    # Gunakan 1 __init__ saja yang sudah lengkap dengan minio_client dan bucket_name
+    def __init__(self, engine, parquet_loader=None, redis=None, minio_client=None, bucket_name=None):
         self.repository = RetrieveRepository(engine)
         self.parquet_loader = parquet_loader
         self.redis = redis
+        self.minio_client = minio_client
+        self.bucket_name = bucket_name
 
     def get_graded_files(self, page):
         """
@@ -383,14 +392,69 @@ class RetrieveDataHandler:
             "file_id": file_id,
             "id_incoming": id_incoming
         }
-    
+
+    # Gunakan 1 mark_as_completed saja, dan pastikan queue-nya mengarah ke export_queue
     def mark_as_completed(self, file_id):
         updated = self.repository.mark_as_completed(file_id=file_id)
+        
+        generate_export_csv.apply_async(args=[file_id], queue="export_queue")
 
         return {
             "success": True,
             "updated_rows": updated,
-            "file_id": file_id
+            "file_id": file_id,
+            "message": "File marked as completed. CSV export is generating in the background."
+        }
+    
+    def get_export_status(self, file_id):
+        query = "SELECT export_status FROM uploaded_files WHERE file_id = :file_id"
+        with self.repository.engine.connect() as conn:
+            result = conn.execute(text(query), {"file_id": file_id}).scalar()
+            
+        if not result:
+            raise HTTPException(status_code=404, detail="File not found")
+            
+        return {"file_id": file_id, "export_status": result}
+
+    def get_export_download_url(self, file_id, export_type):
+        query = """
+            SELECT export_match_path, export_unmatch_path, export_status, institution_name 
+            FROM uploaded_files 
+            WHERE file_id = :file_id
+        """
+        with self.repository.engine.connect() as conn:
+            row = conn.execute(text(query), {"file_id": file_id}).mappings().first()
+            
+        if not row or row["export_status"] != "READY":
+            raise HTTPException(status_code=400, detail="Export file is not ready yet")
+
+        object_name = row["export_match_path"] if export_type == "match" else row["export_unmatch_path"]
+        
+        if not object_name:
+            raise HTTPException(status_code=404, detail=f"{export_type} file path is empty")
+
+        institution_name = row["institution_name"] or "Institution"
+        safe_institution_name = institution_name.replace(" ", "_").replace("/", "_")
+
+        tz_jakarta = zoneinfo.ZoneInfo("Asia/Jakarta")
+        current_timestamp = datetime.now(tz_jakarta).strftime("%Y%m%d_%H%M%S")
+
+        download_filename = f"{safe_institution_name}_{export_type}_{current_timestamp}.csv"
+
+        response_headers = {
+            "response-content-disposition": f'attachment; filename="{download_filename}"'
+        }
+
+        url = self.minio_client.presigned_get_object(
+            self.bucket_name,
+            object_name,
+            expires=timedelta(minutes=15),
+            response_headers=response_headers
+        )
+        
+        return {
+            "url": url, 
+            "filename": download_filename
         }
     
     def get_summary_dashboard(self):

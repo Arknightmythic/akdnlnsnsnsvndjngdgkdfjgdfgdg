@@ -41,7 +41,7 @@ REDIS_URL="redis://localhost:6379/0"
 LLM_PROVIDER="ollama" 
 
 # Base URL Model
-MODEL_BASE_URL="http://localhost:11434"
+OLLAMA_LOCAL_BASE_URL="http://localhost:11434"
 
 # Konfigurasi Ollama (jika LLM_PROVIDER=ollama)
 OLLAMA_MODEL_NAME="llama3.1:8b-instruct-q4_K_M"

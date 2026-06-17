@@ -138,11 +138,32 @@ class RetrieveDataRoutes:
         ):
             handler = RetrieveDataHandler(
                 engine=request.app.state.starrocks_engine,
+                minio_client=request.app.state.minio_client, 
+                bucket_name=request.app.state.raw_bucket     
             )
+            return handler.mark_as_completed(file_id=file_id)
 
-            return handler.mark_as_completed(
-                file_id=file_id,
+        # TAMBAHKAN ENDPOINT BARU DI BAWAHNYA
+        @self.router.get("/files/{file_id}/export-status")
+        async def export_status(file_id: str, request: Request):
+            handler = RetrieveDataHandler(engine=request.app.state.starrocks_engine)
+            return handler.get_export_status(file_id)
+
+        @self.router.get("/files/{file_id}/export/download")
+        async def download_export(
+            file_id: str, 
+            request: Request, 
+            type: str = Query(..., description="Tipe file: 'match' atau 'unmatch'")
+        ):
+            if type not in ["match", "unmatch"]:
+                return {"error": "Type must be 'match' or 'unmatch'"}
+                
+            handler = RetrieveDataHandler(
+                engine=request.app.state.starrocks_engine,
+                minio_client=request.app.state.minio_client,
+                bucket_name=request.app.state.raw_bucket
             )
+            return handler.get_export_download_url(file_id, type)
         
         @self.router.get("/summary_dashboard")
         async def get_summary_dashboard(
