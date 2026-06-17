@@ -379,7 +379,9 @@ class RetrieveDataHandler:
 
         return {
             "success": True,
-            "updated_rows": updated
+            "updated_rows": updated,
+            "file_id": file_id,
+            "id_incoming": id_incoming
         }
     
     def mark_as_completed(self, file_id):
@@ -387,7 +389,8 @@ class RetrieveDataHandler:
 
         return {
             "success": True,
-            "updated_rows": updated
+            "updated_rows": updated,
+            "file_id": file_id
         }
     
     def get_summary_dashboard(self):
