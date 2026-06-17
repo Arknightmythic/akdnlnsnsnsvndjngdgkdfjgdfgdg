@@ -5,7 +5,6 @@ from langgraph.types import Command
 from collections.abc import Callable
 
 class ToolHandlingMiddleware:
-    @staticmethod
     @wrap_tool_call
     def monitor(request: ToolCallRequest, handler: Callable[[ToolCallRequest], ToolMessage | Command])-> ToolMessage | Command:
         try:

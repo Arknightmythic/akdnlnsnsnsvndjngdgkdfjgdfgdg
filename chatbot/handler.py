@@ -59,7 +59,7 @@ class ChatbotHandler:
                     ToolRetryMiddleware(),
                     TodoListMiddleware(),
                     PromptInjectionGuardrail(),
-                    ToolHandlingMiddleware.monitor,
+                    ToolHandlingMiddleware().monitor,
         ]
         self._memory = StarRocksSaver(
             url=f"{os.getenv('STARROCKS_HOST')}:{os.getenv('STARROCKS_PORT')}",
