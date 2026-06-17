@@ -3,6 +3,7 @@ from util.parquet_loader import ParquetLoader
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 import json
+from .enum import MatchStatus
 
 class RetrieveDataHandler:
     PAGE_SIZE_GRADED = 10
@@ -358,4 +359,33 @@ class RetrieveDataHandler:
             "has_next": page < total_pages,
             "has_prev": page > 1,
             "data": manual_result
+        }
+    
+    def mark_match_unmatch(self, id_incoming, file_id, match_status):
+
+        if match_status == MatchStatus.MANUAL_MATCH:
+            updated = self.repository.mark_manual_match(
+                id_incoming=id_incoming,
+                file_id=file_id
+            )
+        elif match_status == MatchStatus.MANUAL_UNMATCH:
+            updated = self.repository.mark_manual_unmatch(
+                id_incoming=id_incoming,
+                file_id=file_id
+            )
+
+        else:
+            raise ValueError("Invalid match_status")
+
+        return {
+            "success": True,
+            "updated_rows": updated
+        }
+    
+    def mark_as_completed(self, file_id):
+        updated = self.repository.mark_as_completed(file_id=file_id)
+
+        return {
+            "success": True,
+            "updated_rows": updated
         }
