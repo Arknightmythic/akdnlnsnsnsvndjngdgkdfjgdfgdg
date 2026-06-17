@@ -349,3 +349,64 @@ class RetrieveRepository:
             rows = conn.execute(q, {"niks": tuple(niks)}).mappings().all()
 
         return {r["nik"]: dict(r) for r in rows}
+    
+    def mark_manual_match(self, id_incoming, file_id):
+        query = text("""
+            UPDATE institution
+            SET match_result = 4
+            WHERE id_incoming = :id_incoming
+            AND file_id = :file_id
+        """)
+
+        with self.engine.begin() as conn:
+            result = conn.execute(
+                query,
+                {
+                    "id_incoming": id_incoming,
+                    "file_id": file_id
+                }
+            )
+
+        return result.rowcount
+    
+    def mark_manual_unmatch(self, id_incoming, file_id):
+        query = text("""
+            UPDATE institution
+            SET match_result = 5
+            WHERE id_incoming = :id_incoming
+            AND file_id = :file_id
+        """)
+
+        with self.engine.begin() as conn:
+            result = conn.execute(
+                query,
+                {
+                    "id_incoming": id_incoming,
+                    "file_id": file_id
+                }
+            )
+
+        return result.rowcount
+    
+    def mark_as_completed(self, file_id):
+        query1 = text("""
+            UPDATE institution
+            SET match_result = 5
+            WHERE match_result = 2
+            AND file_id = :file_id
+        """)
+
+        query2 = text("""
+            UPDATE uploaded_files
+            SET sync_status = 3
+            WHERE file_id = :file_id
+        """)
+
+        with self.engine.begin() as conn:
+            r1 = conn.execute(query1, {"file_id": file_id})
+            r2 = conn.execute(query2, {"file_id": file_id})
+
+        return {
+            "institution_updated": r1.rowcount,
+            "file_updated": r2.rowcount
+        }
