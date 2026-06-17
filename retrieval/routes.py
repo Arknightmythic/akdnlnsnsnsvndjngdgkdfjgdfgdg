@@ -2,6 +2,13 @@ from fastapi import APIRouter, Request, Query
 from .handler import RetrieveDataHandler
 from audit.audit_service import AuditService
 from util.parquet_loader import ParquetLoader
+from pydantic import BaseModel
+from .enum import MatchStatus
+
+
+class MarkMatchRequest(BaseModel):
+    match_status: MatchStatus
+
 
 class RetrieveDataRoutes:
     def __init__(self):
@@ -105,4 +112,34 @@ class RetrieveDataRoutes:
 
             return await handler.get_manual_review_data(
                 file_id=file_id, page=page
+            )
+        
+        @self.router.patch("/files/{file_id}/data/{id_incoming}/match-status")
+        async def mark_manual_match_unmatch(
+            file_id: str,
+            id_incoming: str,
+            payload: MarkMatchRequest,
+            request: Request
+        ):
+            handler = RetrieveDataHandler(
+                engine=request.app.state.starrocks_engine,
+            )
+
+            return handler.mark_match_unmatch(
+                file_id=file_id,
+                id_incoming=id_incoming,
+                match_status=payload.match_status
+            )
+        
+        @self.router.patch("/mark-as-completed/files/{file_id}")
+        async def mark_as_completed(
+            file_id: str,
+            request: Request
+        ):
+            handler = RetrieveDataHandler(
+                engine=request.app.state.starrocks_engine,
+            )
+
+            return handler.mark_as_completed(
+                file_id=file_id,
             )
