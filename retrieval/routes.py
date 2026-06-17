@@ -143,3 +143,13 @@ class RetrieveDataRoutes:
             return handler.mark_as_completed(
                 file_id=file_id,
             )
+        
+        @self.router.get("/summary_dashboard")
+        async def get_summary_dashboard(
+            request: Request,
+        ):
+            handler = RetrieveDataHandler(
+                request.app.state.starrocks_engine
+            )
+
+            return handler.get_summary_dashboard()
