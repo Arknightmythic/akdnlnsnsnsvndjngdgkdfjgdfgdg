@@ -2,15 +2,15 @@ from langchain.agents.middleware import wrap_tool_call
 from langchain.messages import ToolMessage
 from langchain.tools.tool_node import ToolCallRequest
 from langgraph.types import Command
-from collections.abc import Callable, Awaitable 
+from collections.abc import Callable, Awaitable # Tambahkan Awaitable jika menggunakan type hint yang ketat
 
 class ToolHandlingMiddleware:
     @staticmethod
     @wrap_tool_call
-    
+    # 1. Ubah menjadi async def
     async def monitor(request: ToolCallRequest, handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]]) -> ToolMessage | Command:
         try:
-            
+            # 2. Tambahkan await karena handler berjalan di context asynchronous
             result = await handler(request)
             return result
         except Exception as e:
