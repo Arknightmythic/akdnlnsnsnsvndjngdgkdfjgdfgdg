@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Request, Query, BackgroundTasks
+from fastapi import APIRouter, Request, Query, BackgroundTasks
 from .handler import RetrieveDataHandler
 from audit.writer import AuditWriter
 from util.parquet_loader import ParquetLoader
 from pydantic import BaseModel
 from .enum import MatchStatus
+import json
 
 
 class MarkMatchRequest(BaseModel):
@@ -21,68 +23,61 @@ class RetrieveDataRoutes:
 
     def _client_ip(self, request: Request) -> str:
         return request.client.host if request.client else "unknown"
+    
+    async def push_audit_to_redis(self, redis_client, event_data: dict):
+        # Push data log ke Redis list
+        await redis_client.rpush("audit_access_logs", json.dumps(event_data))
+
+    def _log_access_async(self, request: Request, background_tasks: BackgroundTasks, action: str, resource_type: str, resource_id: str):
+        event_data = {
+            "actor_user_id": "anonymous_poc",
+            "action": action,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
+            "ip_address": self._client_ip(request),
+            "result": "SUCCESS",
+            "latency_ms": 0
+        }
+        background_tasks.add_task(self.push_audit_to_redis, request.app.state.redis, event_data)
 
     def setup_routes(self):
 
+        # 2. TERAPKAN KE SEMUA ENDPOINT
         @self.router.get("/graded_files")
         async def get_graded_files(
             request: Request,
+            background_tasks: BackgroundTasks, # Wajib tambahkan ini di setiap endpoint
             page: int = Query(default=1, ge=1)
         ):
-            self._get_audit(request).log_access_event(
-                action="VIEW_GRADED_FILES_LIST",
-                resource_type="LIST_VIEW",
-                resource_id=f"page_{page}",
-                ip_address=self._client_ip(request),
-                result="SUCCESS",
-            )
-            handler = RetrieveDataHandler(request.app.state.starrocks_engine)
+            self._log_access_async(request, background_tasks, "VIEW_GRADED_FILES_LIST", "LIST_VIEW", f"page_{page}")
             handler = RetrieveDataHandler(request.app.state.starrocks_engine)
             return handler.get_graded_files(page)
 
-        # ISSUE #6 FIX: endpoint ini sebelumnya tidak di-log sama sekali
         @self.router.get("/synchronized_files")
         async def get_synchronized_data(
             request: Request,
-            background_tasks: BackgroundTasks,
+            background_tasks: BackgroundTasks, # Wajib tambahkan
             page: int = Query(..., ge=1),
             institution_name: str = Query(...),
             grade: str = Query(...),
             sync_status: str = Query(...),
         ):
-            self._get_audit(request).log_access_event(
-                action="VIEW_SYNCHRONIZED_FILES",
-                resource_type="LIST_VIEW",
-                resource_id=f"page_{page}",
-                ip_address=self._client_ip(request),
-                result="SUCCESS",
-            )
+            self._log_access_async(request, background_tasks, "VIEW_SYNCHRONIZED_FILES", "LIST_VIEW", f"page_{page}")
             handler = RetrieveDataHandler(request.app.state.starrocks_engine)
-            return handler.get_synchronized_files(
-                page=page,
-                institution_name=institution_name,
-                grade=grade,
-                sync_status=sync_status,
-                sync_status=sync_status,
-            )
+            return handler.get_synchronized_files(page=page, institution_name=institution_name, grade=grade, sync_status=sync_status)
 
         # ISSUE #6 FIX
         @self.router.get("/history_data")
         async def get_history_data(
             request: Request,
             background_tasks: BackgroundTasks,
+            background_tasks: BackgroundTasks,
             page: int = Query(..., ge=1),
             institution_name: str = Query(...),
             start_date: str = Query(...),
             end_date: str = Query(...),
         ):
-            self._get_audit(request).log_access_event(
-                action="VIEW_HISTORY_DATA",
-                resource_type="LIST_VIEW",
-                resource_id=f"page_{page}",
-                ip_address=self._client_ip(request),
-                result="SUCCESS",
-            )
+            self._log_access_async(request, background_tasks, "VIEW_HISTORY_DATA", "LIST_VIEW", f"page_{page}")
             handler = RetrieveDataHandler(request.app.state.starrocks_engine)
             return handler.get_history_data(
                 page=page,
@@ -94,14 +89,8 @@ class RetrieveDataRoutes:
 
         # ISSUE #6 FIX
         @self.router.get("/preview-data/{file_id}")
-        async def preview_data(file_id: str, request: Request):
-            self._get_audit(request).log_access_event(
-                action="VIEW_PREVIEW_DATA",
-                resource_type="FILE",
-                resource_id=file_id,
-                ip_address=self._client_ip(request),
-                result="SUCCESS",
-            )
+        async def preview_data(file_id: str, request: Request, background_tasks: BackgroundTasks):
+            self._log_access_async(request, background_tasks, "VIEW_PREVIEW_DATA", "FILE", file_id)
             handler = RetrieveDataHandler(
                 engine=request.app.state.starrocks_engine,
                 parquet_loader=ParquetLoader(
@@ -123,13 +112,7 @@ class RetrieveDataRoutes:
             file_id: str = Query(...),
             page: int = Query(..., ge=1),
         ):
-            self._get_audit(request).log_access_event(
-                action="VIEW_MANUAL_REVIEW_DATA",
-                resource_type="FILE",
-                resource_id=file_id,
-                ip_address=self._client_ip(request),
-                result="SUCCESS",
-            )
+            self._log_access_async(request, background_tasks, "VIEW_MANUAL_REVIEW_DATA", "FILE", file_id)
             handler = RetrieveDataHandler(
                 engine=request.app.state.starrocks_engine,
                 parquet_loader=ParquetLoader(
@@ -150,14 +133,9 @@ class RetrieveDataRoutes:
             id_incoming: str,
             payload: MarkMatchRequest,
             request: Request,
+            background_tasks: BackgroundTasks,
         ):
-            self._get_audit(request).log_access_event(
-                action="MARK_MATCH_STATUS",
-                resource_type="FILE",
-                resource_id=file_id,
-                ip_address=self._client_ip(request),
-                result="SUCCESS",
-            )
+            self._log_access_async(request, background_tasks, "MARK_MATCH_STATUS", "FILE", file_id)
             handler = RetrieveDataHandler(engine=request.app.state.starrocks_engine)
             return handler.mark_match_unmatch(
                 file_id=file_id,
@@ -168,14 +146,8 @@ class RetrieveDataRoutes:
 
         # ISSUE #6 FIX: PATCH endpoint — aksi write paling penting di-audit
         @self.router.patch("/mark-as-completed/files/{file_id}")
-        async def mark_as_completed(file_id: str, request: Request):
-            self._get_audit(request).log_access_event(
-                action="MARK_FILE_COMPLETED",
-                resource_type="FILE",
-                resource_id=file_id,
-                ip_address=self._client_ip(request),
-                result="SUCCESS",
-            )
+        async def mark_as_completed(file_id: str, request: Request, background_tasks: BackgroundTasks):
+            self._log_access_async(request, background_tasks, "MARK_FILE_COMPLETED", "FILE", file_id)
             handler = RetrieveDataHandler(
                 engine=request.app.state.starrocks_engine,
                 minio_client=request.app.state.minio_client,
@@ -186,15 +158,9 @@ class RetrieveDataRoutes:
             return handler.mark_as_completed(file_id=file_id)
 
         @self.router.get("/files/{file_id}/export-status")
-        async def export_status(file_id: str, request: Request):
+        async def export_status(file_id: str, request: Request, background_tasks: BackgroundTasks):
             # ISSUE #6 FIX
-            self._get_audit(request).log_access_event(
-                action="VIEW_EXPORT_STATUS",
-                resource_type="FILE",
-                resource_id=file_id,
-                ip_address=self._client_ip(request),
-                result="SUCCESS",
-            )
+            self._log_access_async(request, background_tasks, "VIEW_EXPORT_STATUS", "FILE", file_id)
             handler = RetrieveDataHandler(engine=request.app.state.starrocks_engine)
             return handler.get_export_status(file_id)
 
@@ -202,19 +168,14 @@ class RetrieveDataRoutes:
         async def download_export(
             file_id: str,
             request: Request,
+            background_tasks: BackgroundTasks,
             type: str = Query(..., description="Tipe file: 'match' atau 'unmatch'"),
         ):
             if type not in ["match", "unmatch"]:
                 return {"error": "Type must be 'match' or 'unmatch'"}
 
             # ISSUE #6 FIX
-            self._get_audit(request).log_access_event(
-                action=f"DOWNLOAD_EXPORT_{type.upper()}",
-                resource_type="FILE",
-                resource_id=file_id,
-                ip_address=self._client_ip(request),
-                result="SUCCESS",
-            )
+            self._log_access_async(request, background_tasks, f"DOWNLOAD_EXPORT_{type.upper()}", "FILE", file_id)
             handler = RetrieveDataHandler(
                 engine=request.app.state.starrocks_engine,
                 minio_client=request.app.state.minio_client,
@@ -225,13 +186,7 @@ class RetrieveDataRoutes:
 
         # ISSUE #6 FIX
         @self.router.get("/summary_dashboard")
-        async def get_summary_dashboard(request: Request):
-            self._get_audit(request).log_access_event(
-                action="VIEW_SUMMARY_DASHBOARD",
-                resource_type="DASHBOARD",
-                resource_id="summary",
-                ip_address=self._client_ip(request),
-                result="SUCCESS",
-            )
+        async def get_summary_dashboard(request: Request, background_tasks: BackgroundTasks):
+            self._log_access_async(request, background_tasks, "VIEW_SUMMARY_DASHBOARD", "DASHBOARD", "summary")
             handler = RetrieveDataHandler(request.app.state.starrocks_engine)
             return handler.get_summary_dashboard()
