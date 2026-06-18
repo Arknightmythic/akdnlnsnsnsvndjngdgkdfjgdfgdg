@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import json
 import time
 from datetime import date, datetime
 from dotenv import load_dotenv
@@ -12,6 +13,7 @@ from .schema import ReasoningOutput
 from .prompt import SYSTEM_PROMPT
 from .pattern_detector import PatternDetector
 from audit.audit_service import AuditService
+from audit.audit_service import AuditService
 
 load_dotenv()
 
@@ -20,6 +22,8 @@ class ReasoningService:
     """
     Service utama untuk Reasoning AI.
 
+    Sumber data : tabel `manual_matches` + `master`
+    Tabel yang DITULIS : `manual_matches` dan `reasoning_patterns`
     Sumber data : tabel `manual_matches` + `master`
     Tabel yang DITULIS : `manual_matches` dan `reasoning_patterns`
     """
@@ -428,11 +432,13 @@ class ReasoningService:
     def bulk_update_mm_results(self, results: list):
         success_data = []
         error_data   = []
-        sample_id    = None  # Ditambahkan untuk mencari referensi file_id
 
         for r in results:
             if r["status"] == "success":
                 success_data.append({
+                    "p_id": r["id"], "p_reason": r["reason"],
+                    "p_pattern": r["pattern_name"], "p_source": r["source"],
+                    "p_status": "COMPLETED",
                     "p_id": r["id"], "p_reason": r["reason"],
                     "p_pattern": r["pattern_name"], "p_source": r["source"],
                     "p_status": "COMPLETED",
@@ -441,11 +447,6 @@ class ReasoningService:
                     sample_id = r["id"]
             else:
                 error_data.append({"p_id": r["id"], "p_status": "FAILED"})
-                if sample_id is None:
-                    sample_id = r["id"]
-
-        if not sample_id:
-            return
 
         with self.engine.begin() as conn:
             try:
@@ -463,31 +464,8 @@ class ReasoningService:
             finally:
                 conn.execute(text("SET enable_insert_partial_update=false;"))
 
-            # --- BAGIAN BARU: Cek & Update Sync Status ---
-            # 1. Cari file_id dari salah satu row yang sedang diproses
-            row_file = conn.execute(
-                text("SELECT file_id FROM manual_matches WHERE id = :id"), 
-                {"id": sample_id}
-            ).mappings().first()
-            
-            file_id = row_file["file_id"] if row_file else None
-
-            if file_id:
-                # 2. Hitung apakah masih ada sisa baris yang PENDING/PROCESSING di file tersebut
-                count_res = conn.execute(
-                    text("SELECT COUNT(*) as c FROM manual_matches "
-                         "WHERE file_id = :file_id AND reasoning_status IN ('PENDING', 'PROCESSING')"),
-                    {"file_id": file_id}
-                ).mappings().first()
-                
-                # 3. Jika batch ini adalah penyelesaian akhir (count = 0), update tabel
-                if count_res and count_res["c"] == 0:
-                    conn.execute(
-                        text("UPDATE uploaded_files SET sync_status = 2 WHERE file_id = :file_id"),
-                        {"file_id": file_id}
-                    )
-
         print(f"[Bulk Update] {len(success_data)} sukses & {len(error_data)} gagal.")
+
     def process_reasoning(self, file_id, dry_run=False, limit=None):
         """Proses semua baris PENDING untuk satu file_id (sync, untuk testing)."""
         start_total = time.perf_counter()
