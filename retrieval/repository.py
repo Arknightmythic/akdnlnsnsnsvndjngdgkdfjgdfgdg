@@ -160,21 +160,24 @@ class RetrieveRepository:
 
         where_clause = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
 
+        # --- UBAH SYNC STATUS DI SINI MENJADI 3 ---
         count_query = text(f"""
             SELECT COUNT(*)
             FROM uploaded_files uf
             JOIN ref_grades rg ON uf.grade = rg.grade_id
             JOIN ref_sync_statuses rs ON uf.sync_status = rs.sync_status_id
             {where_clause}
-            AND uf.sync_status = 1
+            AND uf.sync_status = 3
         """)
 
+        # Di dalam fungsi get_history_data, update bagian data_query
         data_query = text(f"""
             SELECT
                 uf.file_id,
                 uf.institution_name,
                 uf.original_filename,
                 uf.upload_timestamp,
+                uf.export_status, -- TAMBAHKAN KOLOM INI
 
                 SUM(CASE WHEN i.match_result = 1 THEN 1 ELSE 0 END) AS total_auto_match,
                 SUM(CASE WHEN i.match_result = 4 THEN 1 ELSE 0 END) AS total_manual_match,
@@ -185,13 +188,14 @@ class RetrieveRepository:
                 ON i.file_id = uf.file_id
 
             {where_clause}
-            AND uf.sync_status = 1
+            AND uf.sync_status = 3
 
             GROUP BY
                 uf.file_id,
                 uf.institution_name,
                 uf.original_filename,
-                uf.upload_timestamp
+                uf.upload_timestamp,
+                uf.export_status -- TAMBAHKAN INI JUGA
 
             ORDER BY uf.upload_timestamp DESC
             LIMIT :limit
@@ -203,7 +207,7 @@ class RetrieveRepository:
             rows = conn.execute(data_query, params).mappings().all()
 
         return [dict(row) for row in rows], total_rows
-    
+
     def get_minio_path(self, file_id: str):
         """
         Retrieve the MinIO path and synchronization state associated with the
@@ -501,6 +505,7 @@ class RetrieveRepository:
     
         query2 = text("""
             SELECT
+                uf.file_id,               -- TAMBAHKAN BARIS INI
                 uf.institution_name,
                 uf.original_filename,
                 uf.upload_timestamp,
