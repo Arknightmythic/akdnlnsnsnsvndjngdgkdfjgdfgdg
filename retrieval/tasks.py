@@ -1,10 +1,12 @@
 # retrieval/tasks.py
 import os
 import io
+import json # <-- Wajib tambah
+import redis # <-- Wajib tambah (pastikan package redis terinstall)
 import pandas as pd
 import asyncio
 from celery import Task
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from minio import Minio
 from worker import celery_app
 
@@ -110,3 +112,50 @@ def generate_export_csv(self, file_id: str):
     except Exception as e:
         repo.update_export_status(file_id, "FAILED")
         raise self.retry(exc=e, max_retries=3, countdown=30)
+    
+
+# PASTIKAN INDENTASI task ini rata kiri (tidak menjorok ke dalam)
+@celery_app.task(name="retrieval.flush_access_logs", queue="audit_queue")
+def flush_access_logs_to_starrocks():
+    # 1. Inisialisasi Redis (sesuaikan dengan environment kamu)
+    redis_client = redis.Redis(
+        host=os.getenv("REDIS_HOST", "localhost"),
+        port=int(os.getenv("REDIS_PORT", 6379)),
+        db=int(os.getenv("REDIS_DB", 0)),
+        decode_responses=True # Agar output lpop berupa string, bukan bytes
+    ) 
+    
+    # 2. Gunakan fungsi engine yang sudah ada di tasks.py kamu
+    engine = _make_engine()
+
+    logs = []
+    # Tarik log dari Redis, batas maksimum 500 log sekali batching
+    for _ in range(500):
+        item = redis_client.lpop("audit_access_logs")
+        if not item:
+            break
+        logs.append(json.loads(item))
+
+    if not logs:
+        return # Keluar jika tidak ada log baru
+
+    # Query untuk BULK INSERT
+    query = text("""
+        INSERT INTO access_event (
+            actor_user_id, action, resource_type, resource_id,
+            ip_address, result, latency_ms
+        ) VALUES (
+            :actor_user_id, :action, :resource_type, :resource_id,
+            :ip_address, :result, :latency_ms
+        )
+    """)
+
+    try:
+        with engine.begin() as conn:
+            # Mengirim array dictionary akan memicu executemany
+            conn.execute(query, logs)
+    except Exception as e:
+        print(f"Failed to bulk insert audit logs: {e}")
+        # Jika gagal, kembalikan data ke redis agar tidak hilang
+        for log in logs:
+            redis_client.lpush("audit_access_logs", json.dumps(log))
