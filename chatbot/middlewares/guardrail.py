@@ -12,7 +12,7 @@ from chatbot.prompts import PROMPT_INJECTION_GUARDRAIL_PROMPT
 
 load_dotenv()
 
-MODEL_BASE_URL = os.getenv("MODEL_BASE_URL")
+OLLAMA_CLOUD_BASE_URL = os.getenv("OLLAMA_CLOUD_BASE_URL")
 
 class PromptInjectionGuardrailOutput(BaseModel):
     is_dangerous: bool = Field(..., description="security status of the user query")
@@ -23,7 +23,7 @@ class PromptInjectionGuardrail(AgentMiddleware):
         self._prompt = PromptTemplate.from_template(PROMPT_INJECTION_GUARDRAIL_PROMPT)
         self._model = init_chat_model(
             model="ollama:gemma4:31b", 
-            base_url=MODEL_BASE_URL,
+            base_url=OLLAMA_CLOUD_BASE_URL,
             temperature=0
         ).with_structured_output(PromptInjectionGuardrailOutput)
         self._chain = self._prompt |  self._model

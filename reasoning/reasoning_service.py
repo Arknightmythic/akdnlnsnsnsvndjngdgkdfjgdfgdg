@@ -28,7 +28,7 @@ class ReasoningService:
         self.pattern_detector = PatternDetector()
 
         llm_provider = os.getenv("LLM_PROVIDER", "ollama").lower()
-        openai_base_url = os.getenv("MODEL_BASE_URL", "http://localhost:port")
+        openai_base_url = os.getenv("OLLAMA_LOCAL_BASE_URL", "http://localhost:port")
         if not openai_base_url.endswith("/v1"):
             openai_base_url = openai_base_url.rstrip("/") + "/v1"
 

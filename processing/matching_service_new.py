@@ -9,6 +9,7 @@ from .minio_fetching_service import ObjectStorageService
 from .repository import StarrocksService
 from audit.audit_service import AuditService
 from reasoning.tasks import trigger_rows_for_file
+from retrieval.tasks import generate_export_csv
 
 class MatchingServiceV2:
     def __init__(self, engine, minio_client, bucket_name, grade_rules):
@@ -275,6 +276,10 @@ class MatchingServiceV2:
         self.trigger_ai_reasoning(file_id)
         self.starrocks_service.set_sync_complete(file_id, final_sync_status)
         print("Batch insert completed")
+
+        if final_sync_status == 3:
+            print(f"Auto-triggering export worker for file: {file_id}")
+            generate_export_csv.apply_async(args=[file_id], queue="export_queue")
 
         response_data = {
             "message": f"Grade {grade} matching completed",

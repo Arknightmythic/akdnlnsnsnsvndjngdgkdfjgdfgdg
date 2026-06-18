@@ -160,21 +160,24 @@ class RetrieveRepository:
 
         where_clause = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
 
+        # --- UBAH SYNC STATUS DI SINI MENJADI 3 ---
         count_query = text(f"""
             SELECT COUNT(*)
             FROM uploaded_files uf
             JOIN ref_grades rg ON uf.grade = rg.grade_id
             JOIN ref_sync_statuses rs ON uf.sync_status = rs.sync_status_id
             {where_clause}
-            AND uf.sync_status = 1
+            AND uf.sync_status = 3
         """)
 
+        # Di dalam fungsi get_history_data, update bagian data_query
         data_query = text(f"""
             SELECT
                 uf.file_id,
                 uf.institution_name,
                 uf.original_filename,
                 uf.upload_timestamp,
+                uf.export_status, -- TAMBAHKAN KOLOM INI
 
                 SUM(CASE WHEN i.match_result = 1 THEN 1 ELSE 0 END) AS total_auto_match,
                 SUM(CASE WHEN i.match_result = 4 THEN 1 ELSE 0 END) AS total_manual_match,
@@ -185,13 +188,14 @@ class RetrieveRepository:
                 ON i.file_id = uf.file_id
 
             {where_clause}
-            AND uf.sync_status = 1
+            AND uf.sync_status = 3
 
             GROUP BY
                 uf.file_id,
                 uf.institution_name,
                 uf.original_filename,
-                uf.upload_timestamp
+                uf.upload_timestamp,
+                uf.export_status -- TAMBAHKAN INI JUGA
 
             ORDER BY uf.upload_timestamp DESC
             LIMIT :limit
@@ -203,7 +207,7 @@ class RetrieveRepository:
             rows = conn.execute(data_query, params).mappings().all()
 
         return [dict(row) for row in rows], total_rows
-    
+
     def get_minio_path(self, file_id: str):
         """
         Retrieve the MinIO path and synchronization state associated with the
@@ -334,21 +338,37 @@ class RetrieveRepository:
     def get_master_by_niks(self, niks):
         """
         Retrieve master records for the specified NIKs and return them as a
-        dictionary keyed by NIK.
+        dictionary keyed by NIK. (Sudah dilengkapi dengan Chunking & Deduplikasi)
         """
         if not niks:
             return {}
 
+        # 1. Deduplikasi NIK (sangat krusial untuk menghemat memori dan I/O)
+        # Jika ada banyak NIK yang sama di data incoming, kita hanya perlu query 1 kali
+        unique_niks = list(set(niks))
+        
+        # 2. Batasi jumlah NIK per query (StarRocks limit = 10000, pakai 5000 agar aman)
+        CHUNK_SIZE = 5000
+        result_map = {}
+
         q = text("""
-            SELECT nik, nama_lengkap, tempat_lahir, tanggal_lahir, jenis_kelamin, nama_ibu, provinsi, kabupaten, kecamatan, kelurahan, status_kematian
+            SELECT nik, nama_lengkap, tempat_lahir, tanggal_lahir, jenis_kelamin, 
+                   nama_ibu, provinsi, kabupaten, kecamatan, kelurahan, status_kematian
             FROM master
             WHERE nik IN :niks
         """)
 
         with self.engine.connect() as conn:
-            rows = conn.execute(q, {"niks": tuple(niks)}).mappings().all()
+            # 3. Looping untuk memecah 1.7 juta data menjadi potongan-potongan kecil
+            for i in range(0, len(unique_niks), CHUNK_SIZE):
+                chunk = unique_niks[i:i + CHUNK_SIZE]
+                
+                # Eksekusi per chunk
+                rows = conn.execute(q, {"niks": tuple(chunk)}).mappings().all()
+                for r in rows:
+                    result_map[r["nik"]] = dict(r)
 
-        return {r["nik"]: dict(r) for r in rows}
+        return result_map
     
     def mark_manual_match(self, id_incoming, file_id):
         query = text("""
@@ -414,6 +434,44 @@ class RetrieveRepository:
             "file_updated": r2.rowcount
         }
     
+    def get_all_export_data(self, file_id: str):
+        """Mengambil SEMUA data match dan unmatch untuk keperluan eksport CSV"""
+        match_query = text("""
+            SELECT i.id_incoming, i.nik_master, i.match_score, mr.match_result_name
+            FROM institution i JOIN ref_match_results mr ON i.match_result = mr.match_result_id
+            WHERE i.file_id = :file_id AND i.match_result IN (1,4)
+        """)
+
+        unmatch_query = text("""
+            SELECT i.id_incoming, i.match_score, mr.match_result_name
+            FROM institution i JOIN ref_match_results mr ON i.match_result = mr.match_result_id
+            WHERE i.file_id = :file_id AND i.match_result IN (3,5)
+        """)
+
+        with self.engine.connect() as conn:
+            matches = conn.execute(match_query, {"file_id": file_id}).mappings().all()
+            unmatches = conn.execute(unmatch_query, {"file_id": file_id}).mappings().all()
+
+        return {
+            "match": [dict(row) for row in matches],
+            "unmatch": [dict(row) for row in unmatches]
+        }
+
+    def update_export_status(self, file_id: str, status: str, match_path: str = None, unmatch_path: str = None):
+        """Memperbarui status ekspor ke database"""
+        query = text("""
+            UPDATE uploaded_files
+            SET export_status = :status,
+                export_match_path = COALESCE(:match_path, export_match_path),
+                export_unmatch_path = COALESCE(:unmatch_path, export_unmatch_path)
+            WHERE file_id = :file_id
+        """)
+        with self.engine.begin() as conn:
+            conn.execute(query, {
+                "file_id": file_id, "status": status,
+                "match_path": match_path, "unmatch_path": unmatch_path
+            })
+    
     def get_summary_dashboard(self):
         query1 = text("""
             SELECT
@@ -447,6 +505,7 @@ class RetrieveRepository:
     
         query2 = text("""
             SELECT
+                uf.file_id,               -- TAMBAHKAN BARIS INI
                 uf.institution_name,
                 uf.original_filename,
                 uf.upload_timestamp,

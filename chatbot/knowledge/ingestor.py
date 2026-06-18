@@ -14,7 +14,7 @@ from chatbot.knowledge.parser import clean_markdown
 
 load_dotenv()
 
-MODEL_BASE_URL = os.getenv("MODEL_BASE_URL")
+OLLAMA_LOCAL_BASE_URL = os.getenv("OLLAMA_LOCAL_BASE_URL")
 QDRANT_URL = os.getenv("QDRANT_URL")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME")
 
@@ -22,7 +22,7 @@ class Ingestor:
     def __init__(self):
         self._qdrant_client = QdrantClient(host="172.16.12.98")
         self._embedding = OllamaEmbeddings(
-            base_url=MODEL_BASE_URL,
+            base_url=OLLAMA_LOCAL_BASE_URL,
             model="qwen3-embedding:8b"
         )
         self._sparse_embedding = FastEmbedSparse()
