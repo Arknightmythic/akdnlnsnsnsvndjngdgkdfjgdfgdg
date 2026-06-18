@@ -5,16 +5,9 @@ class RetrieveRepository:
         self.engine = engine
 
     def get_graded_files(self, page, page_size):
-        """
-        Retrieve paginated uploaded file records along with grading and
-        processing status information.
-        """
         offset = (page - 1) * page_size
 
-        count_query = text("""
-            SELECT COUNT(*) AS total
-            FROM uploaded_files
-        """)
+        count_query = text("SELECT COUNT(*) AS total FROM uploaded_files")
 
         data_query = text("""
             SELECT
@@ -28,47 +21,22 @@ class RetrieveRepository:
                 uf.is_sync,
                 uf.matching_task_status
             FROM uploaded_files uf
-            INNER JOIN ref_grades rg
-                ON uf.grade = rg.grade_id
-            INNER JOIN ref_process rp
-                ON uf.processing_status = rp.process_id
+            INNER JOIN ref_grades rg ON uf.grade = rg.grade_id
+            INNER JOIN ref_process rp ON uf.processing_status = rp.process_id
             ORDER BY uf.upload_timestamp DESC
-            LIMIT :limit
-            OFFSET :offset
+            LIMIT :limit OFFSET :offset
         """)
 
         with self.engine.connect() as conn:
             total_rows = conn.execute(count_query).scalar()
-
-            rows = conn.execute(
-                data_query,
-                {
-                    "limit": page_size,
-                    "offset": offset
-                }
-            ).mappings().all()
+            rows = conn.execute(data_query, {"limit": page_size, "offset": offset}).mappings().all()
 
         return [dict(row) for row in rows], total_rows
-    
-    def get_synchronized_files(
-        self,
-        page,
-        page_size,
-        institution_name,
-        grade,
-        sync_status
-    ):
-        """
-        Retrieve paginated synchronization file records with optional filtering
-        by institution, grade, and synchronization status.
-        """
-        offset = (page - 1) * page_size
 
+    def get_synchronized_files(self, page, page_size, institution_name, grade, sync_status):
+        offset = (page - 1) * page_size
         where_conditions = []
-        params = {
-            "limit": page_size,
-            "offset": offset
-        }
+        params = {"limit": page_size, "offset": offset}
 
         if institution_name and institution_name.strip("'").strip():
             where_conditions.append("LOWER(uf.institution_name) LIKE LOWER(:institution_name)")
@@ -80,7 +48,7 @@ class RetrieveRepository:
                 placeholders = ", ".join([f":grade_{i}" for i in range(len(grade_list))])
                 where_conditions.append(f"rg.grade_id IN ({placeholders})")
                 for i, g in enumerate(grade_list):
-                    params[f"grade_{i}"] = int(g)  
+                    params[f"grade_{i}"] = int(g)
 
         if sync_status:
             status_list = [s.strip() for s in str(sync_status).split(",") if s.strip()]
@@ -88,7 +56,7 @@ class RetrieveRepository:
                 placeholders = ", ".join([f":sync_status_{i}" for i in range(len(status_list))])
                 where_conditions.append(f"rs.sync_status_id IN ({placeholders})")
                 for i, s in enumerate(status_list):
-                    params[f"sync_status_{i}"] = int(s)  
+                    params[f"sync_status_{i}"] = int(s)
 
         where_clause = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
 
@@ -102,49 +70,27 @@ class RetrieveRepository:
 
         data_query = text(f"""
             SELECT
-                uf.file_id,
-                uf.original_filename,
-                uf.institution_name,
-                uf.upload_timestamp,
-                rg.grade_code AS grade,
-                uf.row_count,
-                uf.is_sync,
-                rs.status_code AS sync_status
+                uf.file_id, uf.original_filename, uf.institution_name,
+                uf.upload_timestamp, rg.grade_code AS grade,
+                uf.row_count, uf.is_sync, rs.status_code AS sync_status
             FROM uploaded_files uf
             JOIN ref_grades rg ON uf.grade = rg.grade_id
             JOIN ref_sync_statuses rs ON uf.sync_status = rs.sync_status_id
             {where_clause}
             ORDER BY uf.upload_timestamp DESC
-            LIMIT :limit
-            OFFSET :offset
+            LIMIT :limit OFFSET :offset
         """)
-        
 
         with self.engine.connect() as conn:
             total_rows = conn.execute(count_query, params).scalar()
             rows = conn.execute(data_query, params).mappings().all()
 
         return [dict(row) for row in rows], total_rows
-    
-    def get_history_data(
-        self,
-        page,
-        page_size,
-        institution_name,
-        start_date,
-        end_date
-    ):
-        """
-        Retrieve paginated synchronization history records with summary counts of match,
-        manual match, and unmatch statistics.
-        """
-        offset = (page - 1) * page_size
 
+    def get_history_data(self, page, page_size, institution_name, start_date, end_date):
+        offset = (page - 1) * page_size
         where_conditions = []
-        params = {
-            "limit": page_size,
-            "offset": offset
-        }
+        params = {"limit": page_size, "offset": offset}
 
         if institution_name and institution_name.strip("'").strip():
             where_conditions.append("LOWER(uf.institution_name) LIKE LOWER(:institution_name)")
@@ -160,7 +106,6 @@ class RetrieveRepository:
 
         where_clause = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
 
-        # --- UBAH SYNC STATUS DI SINI MENJADI 3 ---
         count_query = text(f"""
             SELECT COUNT(*)
             FROM uploaded_files uf
@@ -170,7 +115,6 @@ class RetrieveRepository:
             AND uf.sync_status = 3
         """)
 
-        # Di dalam fungsi get_history_data, update bagian data_query
         data_query = text(f"""
             SELECT
                 uf.file_id,
@@ -209,23 +153,14 @@ class RetrieveRepository:
         return [dict(row) for row in rows], total_rows
 
     def get_minio_path(self, file_id: str):
-        """
-        Retrieve the MinIO path and synchronization state associated with the
-        specified file identifier.
-        """
         q = text("""
             SELECT minio_path, is_sync, sync_status
-            FROM uploaded_files
-            WHERE file_id = :file_id
+            FROM uploaded_files WHERE file_id = :file_id
         """)
-
         with self.engine.connect() as conn:
             return conn.execute(q, {"file_id": file_id}).mappings().first()
-        
+
     def get_completed_data(self, file_id: str):
-        """
-        Retrieve top matched and unmatched records ordered by match score for the specified file.
-        """
         match_query = text("""
             SELECT
                 i.id_incoming,
@@ -256,29 +191,16 @@ class RetrieveRepository:
             ORDER BY i.match_score ASC
             LIMIT 10
         """)
-
         with self.engine.connect() as conn:
-            matches = conn.execute(
-                match_query,
-                {"file_id": file_id}
-            ).mappings().all()
-
-            unmatches = conn.execute(
-                unmatch_query,
-                {"file_id": file_id}
-            ).mappings().all()
+            matches   = conn.execute(match_query,   {"file_id": file_id}).mappings().all()
+            unmatches = conn.execute(unmatch_query, {"file_id": file_id}).mappings().all()
 
         return {
-            "match": [dict(row) for row in matches],
-            "unmatch": [dict(row) for row in unmatches]
+            "match":   [dict(row) for row in matches],
+            "unmatch": [dict(row) for row in unmatches],
         }
-        
-    def get_manual_review_data(self, file_id: str, page, page_size):
-        """
-        Retrieve paginated institution records that require manual review for a
-        specific synchronization file, including match details and review reasons.
-        """
 
+    def get_manual_review_data(self, file_id: str, page, page_size):
         offset = (page - 1) * page_size
 
         count_query = text("""
@@ -321,215 +243,208 @@ class RetrieveRepository:
             OFFSET :offset
         """)
 
-
         with self.engine.connect() as conn:
-            total_rows = conn.execute(count_query,{"file_id": file_id}).scalar()
+            total_rows = conn.execute(count_query, {"file_id": file_id}).scalar()
             rows = conn.execute(
                 manual_review_query,
-                {
-                    "file_id": file_id,
-                    "limit": page_size,
-                    "offset": offset
-                }
+                {"file_id": file_id, "limit": page_size, "offset": offset}
             ).mappings().all()
 
         return [dict(row) for row in rows], total_rows
-        
+
     def get_master_by_niks(self, niks):
-        """
-        Retrieve master records for the specified NIKs and return them as a
-        dictionary keyed by NIK. (Sudah dilengkapi dengan Chunking & Deduplikasi)
-        """
         if not niks:
             return {}
 
-        # 1. Deduplikasi NIK (sangat krusial untuk menghemat memori dan I/O)
-        # Jika ada banyak NIK yang sama di data incoming, kita hanya perlu query 1 kali
-        unique_niks = list(set(niks))
-        
-        # 2. Batasi jumlah NIK per query (StarRocks limit = 10000, pakai 5000 agar aman)
-        CHUNK_SIZE = 5000
-        result_map = {}
+        unique_niks  = list(set(niks))
+        CHUNK_SIZE   = 5000
+        result_map   = {}
 
         q = text("""
-            SELECT nik, nama_lengkap, tempat_lahir, tanggal_lahir, jenis_kelamin, 
+            SELECT nik, nama_lengkap, tempat_lahir, tanggal_lahir, jenis_kelamin,
                    nama_ibu, provinsi, kabupaten, kecamatan, kelurahan, status_kematian
-            FROM master
-            WHERE nik IN :niks
+            FROM master WHERE nik IN :niks
         """)
 
         with self.engine.connect() as conn:
-            # 3. Looping untuk memecah 1.7 juta data menjadi potongan-potongan kecil
             for i in range(0, len(unique_niks), CHUNK_SIZE):
                 chunk = unique_niks[i:i + CHUNK_SIZE]
-                
-                # Eksekusi per chunk
-                rows = conn.execute(q, {"niks": tuple(chunk)}).mappings().all()
+                rows  = conn.execute(q, {"niks": tuple(chunk)}).mappings().all()
                 for r in rows:
                     result_map[r["nik"]] = dict(r)
 
         return result_map
-    
+
+    # -----------------------------------------------------------------------
+    # BEFORE_STATE helpers
+    # -----------------------------------------------------------------------
+
+    def get_match_result_before(self, id_incoming: str, file_id: str) -> dict:
+        """
+        Fetch match_result saat ini dari institution SEBELUM di-update.
+        Dipakai sebagai before_state untuk audit MARK_MATCH_STATUS.
+        Hanya ambil match_result — tidak perlu seluruh row.
+        """
+        q = text("""
+            SELECT match_result
+            FROM institution
+            WHERE id_incoming = :id_incoming AND file_id = :file_id
+            LIMIT 1
+        """)
+        with self.engine.connect() as conn:
+            row = conn.execute(q, {"id_incoming": id_incoming, "file_id": file_id}).mappings().first()
+        return dict(row) if row else {}
+
+    def get_file_status_before(self, file_id: str) -> dict:
+        """
+        Fetch sync_status dan is_sync dari uploaded_files SEBELUM di-update.
+        Dipakai sebagai before_state untuk audit MARK_FILE_COMPLETED.
+        """
+        q = text("""
+            SELECT sync_status, is_sync
+            FROM uploaded_files
+            WHERE file_id = :file_id
+            LIMIT 1
+        """)
+        with self.engine.connect() as conn:
+            row = conn.execute(q, {"file_id": file_id}).mappings().first()
+        return dict(row) if row else {}
+
+    def get_matching_status_before(self, file_id: str) -> dict:
+        """
+        Fetch matching_task_status dan sync_status SEBELUM proses matching dimulai.
+        Dipakai sebagai before_state untuk audit MATCHING_GRADE_X.
+        """
+        q = text("""
+            SELECT matching_task_status, sync_status, is_sync
+            FROM uploaded_files
+            WHERE file_id = :file_id
+            LIMIT 1
+        """)
+        with self.engine.connect() as conn:
+            row = conn.execute(q, {"file_id": file_id}).mappings().first()
+        return dict(row) if row else {}
+
+    def count_events_before_retention(self) -> dict:
+        """
+        Hitung jumlah baris audit_event dan access_event SEBELUM dihapus oleh retention.
+        Dipakai sebagai before_state untuk audit execute_audit_retention.
+        """
+        q = text("""
+            SELECT
+                (SELECT COUNT(*) FROM audit_event)  AS audit_event_count,
+                (SELECT COUNT(*) FROM access_event) AS access_event_count
+        """)
+        with self.engine.connect() as conn:
+            row = conn.execute(q).mappings().first()
+        return dict(row) if row else {"audit_event_count": 0, "access_event_count": 0}
+
+    # -----------------------------------------------------------------------
+    # Write operations
+    # -----------------------------------------------------------------------
+
     def mark_manual_match(self, id_incoming, file_id):
         query = text("""
             UPDATE institution
             SET match_result = 4
-            WHERE id_incoming = :id_incoming
-            AND file_id = :file_id
-            AND match_result = 2
+            WHERE id_incoming = :id_incoming AND file_id = :file_id AND match_result = 2
         """)
-
         with self.engine.begin() as conn:
-            result = conn.execute(
-                query,
-                {
-                    "id_incoming": id_incoming,
-                    "file_id": file_id
-                }
-            )
-
+            result = conn.execute(query, {"id_incoming": id_incoming, "file_id": file_id})
         return result.rowcount
-    
+
     def mark_manual_unmatch(self, id_incoming, file_id):
         query = text("""
             UPDATE institution
             SET match_result = 5
-            WHERE id_incoming = :id_incoming
-            AND file_id = :file_id
-            AND match_result = 2
+            WHERE id_incoming = :id_incoming AND file_id = :file_id AND match_result = 2
         """)
-
         with self.engine.begin() as conn:
-            result = conn.execute(
-                query,
-                {
-                    "id_incoming": id_incoming,
-                    "file_id": file_id
-                }
-            )
-
+            result = conn.execute(query, {"id_incoming": id_incoming, "file_id": file_id})
         return result.rowcount
-    
+
     def mark_as_completed(self, file_id):
         query1 = text("""
             UPDATE institution
             SET match_result = 5
-            WHERE match_result = 2
-            AND file_id = :file_id
+            WHERE match_result = 2 AND file_id = :file_id
         """)
-
         query2 = text("""
             UPDATE uploaded_files
             SET sync_status = 3
-            WHERE file_id = :file_id
-            AND sync_status = 2
+            WHERE file_id = :file_id AND sync_status = 2
         """)
-
         with self.engine.begin() as conn:
             r1 = conn.execute(query1, {"file_id": file_id})
             r2 = conn.execute(query2, {"file_id": file_id})
+        return {"institution_updated": r1.rowcount, "file_updated": r2.rowcount}
 
-        return {
-            "institution_updated": r1.rowcount,
-            "file_updated": r2.rowcount
-        }
-    
     def get_all_export_data(self, file_id: str):
-        """Mengambil SEMUA data match dan unmatch untuk keperluan eksport CSV"""
         match_query = text("""
             SELECT i.id_incoming, i.nik_master, i.match_score, mr.match_result_name
             FROM institution i JOIN ref_match_results mr ON i.match_result = mr.match_result_id
             WHERE i.file_id = :file_id AND i.match_result IN (1,4)
         """)
-
         unmatch_query = text("""
             SELECT i.id_incoming, i.match_score, mr.match_result_name
             FROM institution i JOIN ref_match_results mr ON i.match_result = mr.match_result_id
             WHERE i.file_id = :file_id AND i.match_result IN (3,5)
         """)
-
         with self.engine.connect() as conn:
-            matches = conn.execute(match_query, {"file_id": file_id}).mappings().all()
+            matches   = conn.execute(match_query,   {"file_id": file_id}).mappings().all()
             unmatches = conn.execute(unmatch_query, {"file_id": file_id}).mappings().all()
 
         return {
-            "match": [dict(row) for row in matches],
-            "unmatch": [dict(row) for row in unmatches]
+            "match":   [dict(row) for row in matches],
+            "unmatch": [dict(row) for row in unmatches],
         }
 
     def update_export_status(self, file_id: str, status: str, match_path: str = None, unmatch_path: str = None):
-        """Memperbarui status ekspor ke database"""
         query = text("""
             UPDATE uploaded_files
             SET export_status = :status,
-                export_match_path = COALESCE(:match_path, export_match_path),
+                export_match_path   = COALESCE(:match_path,   export_match_path),
                 export_unmatch_path = COALESCE(:unmatch_path, export_unmatch_path)
             WHERE file_id = :file_id
         """)
         with self.engine.begin() as conn:
             conn.execute(query, {
                 "file_id": file_id, "status": status,
-                "match_path": match_path, "unmatch_path": unmatch_path
+                "match_path": match_path, "unmatch_path": unmatch_path,
             })
-    
+
     def get_summary_dashboard(self):
         query1 = text("""
             SELECT
                 COUNT(*) AS total_files,
-
                 SUM(CASE WHEN is_sync = 0 THEN 1 ELSE 0 END) AS total_pending,
-
-                SUM(CASE
-                    WHEN is_sync = 1 AND sync_status = 3
-                    THEN 1 ELSE 0
-                END) AS total_completed,
-
-                SUM(CASE
-                    WHEN is_sync = 1 AND sync_status = 1
-                    THEN 1 ELSE 0
-                END) AS total_in_progress,
-
-                SUM(CASE
-                    WHEN is_sync = 1 AND sync_status = 2
-                    THEN 1 ELSE 0
-                END) AS total_awaiting_action,
-
+                SUM(CASE WHEN is_sync = 1 AND sync_status = 3 THEN 1 ELSE 0 END) AS total_completed,
+                SUM(CASE WHEN is_sync = 1 AND sync_status = 1 THEN 1 ELSE 0 END) AS total_in_progress,
+                SUM(CASE WHEN is_sync = 1 AND sync_status = 2 THEN 1 ELSE 0 END) AS total_awaiting_action,
                 SUM(CASE WHEN grade = 1 THEN 1 ELSE 0 END) AS total_grade_a,
                 SUM(CASE WHEN grade = 2 THEN 1 ELSE 0 END) AS total_grade_b,
                 SUM(CASE WHEN grade = 3 THEN 1 ELSE 0 END) AS total_grade_c,
                 SUM(CASE WHEN grade = 4 THEN 1 ELSE 0 END) AS total_grade_d,
                 SUM(CASE WHEN grade = 5 THEN 1 ELSE 0 END) AS total_grade_e
-                    
             FROM uploaded_files
         """)
-    
+
         query2 = text("""
             SELECT
-                uf.file_id,               -- TAMBAHKAN BARIS INI
-                uf.institution_name,
-                uf.original_filename,
-                uf.upload_timestamp,
-                ss.status_code AS sync_status,
-                rg.grade_code AS grade
-
+                uf.file_id, uf.institution_name, uf.original_filename,
+                uf.upload_timestamp, ss.status_code AS sync_status, rg.grade_code AS grade
             FROM uploaded_files uf
-
-            INNER JOIN ref_sync_statuses ss
-                ON ss.sync_status_id = uf.sync_status
-
-            INNER JOIN ref_grades rg
-                ON rg.grade_id = uf.grade
-
-            WHERE uf.is_sync = 1
-            AND DATE(uf.upload_timestamp) = CURRENT_DATE()
+            INNER JOIN ref_sync_statuses ss ON ss.sync_status_id = uf.sync_status
+            INNER JOIN ref_grades rg ON rg.grade_id = uf.grade
+            WHERE uf.is_sync = 1 AND DATE(uf.upload_timestamp) = CURRENT_DATE()
             ORDER BY uf.upload_timestamp DESC
         """)
 
         with self.engine.begin() as conn:
-            summary = conn.execute(query1).mappings().first()
+            summary           = conn.execute(query1).mappings().first()
             recent_sync_files = conn.execute(query2).mappings().all()
-        return {
-        "summary": dict(summary) if summary else {},
-        "recent_sync_files": [dict(row) for row in recent_sync_files]
-    }
 
+        return {
+            "summary":           dict(summary) if summary else {},
+            "recent_sync_files": [dict(row) for row in recent_sync_files],
+        }
