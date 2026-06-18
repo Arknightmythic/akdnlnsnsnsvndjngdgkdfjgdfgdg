@@ -1,6 +1,12 @@
 import os
 import json
+import os
+import json
 import logging
+from celery import Task
+from sqlalchemy import create_engine, text
+
+from worker import celery_app
 from celery import Task
 from sqlalchemy import create_engine, text
 
@@ -34,25 +40,18 @@ class RetentionTask(Task):
     base=RetentionTask,
     name="audit.tasks.execute_audit_retention",
     acks_late=True,
-    # FIX #5: max_retries=0 mencegah Celery retry task retention secara otomatis.
-    # Retry retention tidak aman karena bisa jalan dua kali dalam window yang sama,
-    # dan DELETE sudah partial sehingga before_state tidak lagi akurat.
-    max_retries=0,
 )
 def execute_audit_retention(self):
+    logger.info("Starting Audit & Access Event Retention Task...")
+
+    # BEFORE_STATE: hitung jumlah baris SEBELUM DELETE.
+    # Dilakukan di luar transaksi utama agar count tidak terpengaruh
+    # jika transaksi kemudian di-rollback karena error.
     from retrieval.repository import RetrieveRepository
     from audit.audit_service import AuditService
 
-    logger.info("Starting Audit & Access Event Retention Task...")
-
-    retrieval = RetrieveRepository(self.engine)
-    audit_svc = AuditService(self.engine)
-
-    # FIX #5: Ambil before_state dan policy sekaligus dalam satu koneksi read
-    # agar count dan policy_id konsisten snapshot-nya — tidak terpecah jadi
-    # dua query terpisah yang bisa terjeda oleh concurrent task lain.
-    before_state, retention_rules, policy_ids = _load_before_state_and_policy(self.engine)
-
+    retrieval    = RetrieveRepository(self.engine)
+    before_state = retrieval.count_events_before_retention()
     logger.info(
         f"Before retention — audit_event: {before_state['audit_event_count']}, "
         f"access_event: {before_state['access_event_count']}"
@@ -60,43 +59,55 @@ def execute_audit_retention(self):
 
     try:
         with self.engine.begin() as conn:
-            # DELETE audit_event
+            # 1. Ambil policy AUDIT dan ACCESS log
+            policy_query = text("""
+                SELECT resource_type, retention_days, id
+                FROM retention_policy
+                WHERE resource_type IN ('AUDIT_LOG', 'ACCESS_LOG') AND status = 'ACTIVE'
+            """)
+            policies = conn.execute(policy_query).mappings().all()
+
+            retention_rules = {"AUDIT_LOG": 30, "ACCESS_LOG": 30}
+            policy_ids      = {"AUDIT_LOG": None, "ACCESS_LOG": None}
+
+            for p in policies:
+                retention_rules[p["resource_type"]] = p["retention_days"]
+                policy_ids[p["resource_type"]]      = p["id"]
+
+            # 2. DELETE audit_event
             conn.execute(text(f"""
                 DELETE FROM audit_event
                 WHERE event_time < DATE_SUB(NOW(), INTERVAL {retention_rules['AUDIT_LOG']} DAY)
             """))
             logger.info(f"Deleted audit_event older than {retention_rules['AUDIT_LOG']} days")
 
-            # DELETE access_event
+            # 3. DELETE access_event
             conn.execute(text(f"""
                 DELETE FROM access_event
                 WHERE event_time < DATE_SUB(NOW(), INTERVAL {retention_rules['ACCESS_LOG']} DAY)
             """))
             logger.info(f"Deleted access_event older than {retention_rules['ACCESS_LOG']} days")
-            
 
-            # FIX #5: Gunakan _safe_policy_id untuk INSERT retention_action.
-            # Jika policy_id None (tabel retention_policy kosong), INSERT tetap
-            # berhasil karena kolom policy_id di schema nullable (tidak ada NOT NULL).
-            # Sebelumnya ini tidak dihandle, bisa menyebabkan constraint error
-            # tergantung StarRocks mode.
+            # 4. Catat ke retention_action untuk kedua resource type
             log_action = text("""
                 INSERT INTO retention_action (policy_id, resource_type, action_status)
                 VALUES (:policy_id, :resource_type, :status)
             """)
             conn.execute(log_action, {
-                "policy_id": policy_ids.get("AUDIT_LOG"),
+                "policy_id": policy_ids["AUDIT_LOG"],
                 "resource_type": "AUDIT_LOG",
                 "status": "SUCCESS",
             })
             conn.execute(log_action, {
-                "policy_id": policy_ids.get("ACCESS_LOG"),
+                "policy_id": policy_ids["ACCESS_LOG"],
                 "resource_type": "ACCESS_LOG",
                 "status": "SUCCESS",
             })
 
-        # Catat audit_event SETELAH commit transaksi utama agar tidak ikut rollback
-        audit_svc.log_audit_event(
+        # 5. Catat audit_event untuk operasi retention itu sendiri,
+        #    dengan before_state = jumlah baris sebelum dihapus.
+        #    Dibuat SETELAH transaksi commit agar tidak ikut di-rollback.
+        AuditService(self.engine).log_audit_event(
             actor_org_id="system_auto",
             action="EXECUTE_AUDIT_RETENTION",
             resource_type="AUDIT_LOG",
@@ -104,37 +115,47 @@ def execute_audit_retention(self):
             result="SUCCESS",
             before_state=json.dumps(before_state),
             after_state=json.dumps({
-                "retention_days_audit": retention_rules["AUDIT_LOG"],
+                "retention_days_audit":  retention_rules["AUDIT_LOG"],
                 "retention_days_access": retention_rules["ACCESS_LOG"],
             }),
         )
 
         logger.info("Retention task completed successfully.")
         return "SUCCESS"
-       
 
     except Exception as e:
         logger.error(f"Failed to execute retention task: {e}")
 
-        # Catat FAILED dengan koneksi baru (koneksi lama sudah rollback)
+        # Catat FAILED ke retention_action menggunakan koneksi baru
         try:
             with self.engine.begin() as conn:
+                policy_query = text("""
+                    SELECT resource_type, id
+                    FROM retention_policy
+                    WHERE resource_type IN ('AUDIT_LOG', 'ACCESS_LOG') AND status = 'ACTIVE'
+                """)
+                policies = conn.execute(policy_query).mappings().all()
+                policy_ids_fallback = {"AUDIT_LOG": None, "ACCESS_LOG": None}
+                for p in policies:
+                    policy_ids_fallback[p["resource_type"]] = p["id"]
+
                 log_action = text("""
                     INSERT INTO retention_action (policy_id, resource_type, action_status)
                     VALUES (:policy_id, :resource_type, :status)
                 """)
                 conn.execute(log_action, {
-                    "policy_id": policy_ids.get("AUDIT_LOG"),
+                    "policy_id": policy_ids_fallback["AUDIT_LOG"],
                     "resource_type": "AUDIT_LOG",
                     "status": "FAILED",
                 })
                 conn.execute(log_action, {
-                    "policy_id": policy_ids.get("ACCESS_LOG"),
+                    "policy_id": policy_ids_fallback["ACCESS_LOG"],
                     "resource_type": "ACCESS_LOG",
                     "status": "FAILED",
                 })
 
-            audit_svc.log_audit_event(
+            # Catat juga ke audit_event dengan before_state
+            AuditService(self.engine).log_audit_event(
                 actor_org_id="system_auto",
                 action="EXECUTE_AUDIT_RETENTION",
                 resource_type="AUDIT_LOG",
@@ -143,6 +164,7 @@ def execute_audit_retention(self):
                 before_state=json.dumps(before_state),
                 after_state=json.dumps({"error": str(e)}),
             )
+
         except Exception as inner_e:
             logger.error(f"Failed to record FAILED retention action: {inner_e}")
 
