@@ -84,8 +84,8 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                     `checkpoint_id` VARCHAR(255) NOT NULL,
                     `parent_checkpoint_id` VARCHAR(255),
                     `type` VARCHAR(50),
-                    `checkpoint` STRING,
-                    `metadata` STRING,
+                    `checkpoint` VARCHAR(100000),
+                    `metadata` VARCHAR(100000),
                     `metadata_type` VARCHAR(50)
                 ) ENGINE=OLAP
                 PRIMARY KEY (`pk`)
@@ -104,7 +104,7 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                     `idx` INT NOT NULL,
                     `channel` VARCHAR(255) NOT NULL,
                     `type` VARCHAR(50),
-                    `value` STRING,
+                    `value` VARCHAR(100000),
                     `task_path` VARCHAR(1024)
                 ) ENGINE=OLAP
                 PRIMARY KEY (`pk`)
@@ -344,8 +344,11 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                 }
                 connection.execute(query, merge_data)
                 connection.commit()
-            except Exception:
-                raise
+            except Exception as e:
+                if "Insert has filtered data" in str(e):
+                    print(f"StarRocks Filtered Data Warning (checkpoint): {e}")
+                else:
+                    raise e
 
         return {
             "configurable": {
@@ -388,8 +391,11 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                     """)
                     connection.execute(query, merge_data)
                 connection.commit()
-            except Exception:
-                raise
+            except Exception as e:
+                if "Insert has filtered data" in str(e):
+                    print(f"StarRocks Filtered Data Warning (writes): {e}")
+                else:
+                    raise e
 
     async def aget_tuple(self, config: RunnableConfig) -> Optional[CheckpointTuple]:
         checkpoint_ns = config["configurable"].get("checkpoint_ns", "")
@@ -620,8 +626,11 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                 }
                 connection.execute(query, merge_data)
                 connection.commit()
-            except Exception:
-                raise
+            except Exception as e:
+                if "Insert has filtered data" in str(e):
+                    print(f"StarRocks Filtered Data Warning (checkpoint): {e}")
+                else:
+                    raise e
 
         return {
             "configurable": {
@@ -664,8 +673,11 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                     """)
                     connection.execute(query, merge_data)
                 connection.commit()
-            except Exception:
-                raise
+            except Exception as e:
+                if "Insert has filtered data" in str(e):
+                    print(f"StarRocks Filtered Data Warning (writes): {e}")
+                else:
+                    raise e
 
     def get_next_version(self, current: Optional[str], channel: ChannelProtocol) -> str:
         if current is None:
