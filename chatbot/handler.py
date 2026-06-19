@@ -10,12 +10,11 @@ from opik.integrations.langchain import OpikTracer
 from pydantic import BaseModel, Field
 import os
 import json
-import asyncio
 
 from chatbot.tools import get_table_names, get_table_detail, run_query, retrieve
 from chatbot.prompts import SYNCHRONO_AGENT_SYSTEM_PROMPT, TITLE_GENERATOR_PROMPT
 from chatbot.database import StarRocksSaver, mysql_db as db
-from chatbot.middlewares import PIIMiddleware, PromptInjectionGuardrail, ToolHandlingMiddleware
+from chatbot.middlewares import PIIMiddleware, PromptInjectionGuardrail
  
 load_dotenv()
 
@@ -30,7 +29,9 @@ class TitleGenerator:
             model=model,
             base_url=base_url,
             temperature=0,
-            
+            api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
+            model_provider="openai",
+            stream_usage=True
         ).with_structured_output(TitleOutput)
 
         self._prompt = PromptTemplate.from_template(TITLE_GENERATOR_PROMPT)
@@ -47,19 +48,21 @@ class ChatbotHandler:
             model=model,
             base_url=base_url,
             temperature=0,
+            api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
+            model_provider="openai",
+            stream_usage=True
         )
         self._system_prompt = SystemMessage(SYNCHRONO_AGENT_SYSTEM_PROMPT)
         self._tools = [get_table_names, get_table_detail, run_query, retrieve]
         self._middleware = [
                     SummarizationMiddleware(
                         model=self._model,
-                        trigger=("messages", 30), 
+                        trigger=[("messages", 20), ("tokens", 75_000)], 
                         keep=("messages", 10)
                     ),
                     ToolRetryMiddleware(),
                     TodoListMiddleware(),
                     PromptInjectionGuardrail(),
-                    ToolHandlingMiddleware.monitor,
         ]
         self._memory = StarRocksSaver(
             url=f"{os.getenv('STARROCKS_HOST')}:{os.getenv('STARROCKS_PORT')}",
@@ -124,7 +127,6 @@ class ChatbotHandler:
                     "configurable": {"thread_id": conversation_id}
                 }
             ):
-            
             if metadata["ls_integration"] == "langchain_chat_model" and metadata["langgraph_node"] == "PromptInjectionGuardrail.before_agent":
                 continue
 

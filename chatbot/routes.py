@@ -2,9 +2,11 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+import os
 
 from chatbot.handler import ChatbotHandler
 from chatbot.database import mysql_db as db
+from chatbot.consts import CHATBOT_MODEL
 
 load_dotenv()
 
@@ -13,8 +15,8 @@ class ChatRequest(BaseModel):
     conversation_id: str = Field(..., min_length=2)
     user_id: str = Field(..., min_length=2)
     enable_pii: bool = Field(default=True)
-    model_name: str = Field(default="ollama:gemma4:31b")
-    base_url: str = Field(default="https://ollama.com")
+    model_name: str = Field(default=CHATBOT_MODEL)
+    base_url: str = Field(default=os.getenv("OLLAMA_CLOUD_BASE_URL"))
 
 class ChatbotRoutes:
     def __init__(self):
