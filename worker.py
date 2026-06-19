@@ -25,14 +25,12 @@ celery_app.conf.update(
 celery_app.conf.beat_schedule = {
     "run-audit-retention-daily": {
         "task": "audit.tasks.execute_audit_retention",
-        "schedule": crontab(minute=0, hour=0), # Berjalan setiap hari jam 00:00
+        "schedule": crontab(minute=0, hour=0),  
     },
-    
-    # --- TAMBAHKAN JADWAL BARU DI SINI ---
+
     "flush-access-logs-every-10-seconds": {
-        # Nama ini harus sama dengan parameter 'name' pada @celery_app.task di file tasks.py
-        "task": "retrieval.flush_access_logs", 
-        "schedule": 10.0, # Berjalan setiap 10 detik
+        "task": "retrieval.flush_access_logs",
+        "schedule": 10.0,  
     }
 }
 
