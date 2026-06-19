@@ -1,8 +1,10 @@
 from sqlalchemy import text
 import math
 
-# Whitelist format tanggal yang aman untuk dipakai di DATE_FORMAT()
-# Ini mencegah f-string interpolasi langsung dari nilai yang bisa berubah
+# Whitelist period yang valid — tolak apapun di luar ini
+_ALLOWED_PERIODS = {"daily", "weekly", "monthly", "custom"}
+
+# Whitelist format tanggal untuk DATE_FORMAT() — tidak pernah diinterpolasi dari input user
 _DATE_FORMAT_MAP = {
     "daily":   "%H:00",
     "weekly":  "%Y-%m-%d",
@@ -10,18 +12,38 @@ _DATE_FORMAT_MAP = {
     "custom":  "%Y-%m-%d",
 }
 
+# Mapping period ke jumlah hari — hardcoded, tidak dari user
+_DAYS_MAP = {"daily": 1, "weekly": 7, "monthly": 30}
+
+
 class DashboardService:
     def __init__(self, engine):
         self.engine = engine
 
-    def _build_date_condition(self, period, start_date, end_date):
+    def _validate_period(self, period: str) -> str:
+        # FIX #3/#4: Validasi eksplisit sebelum apapun dipakai.
+        # Sebelumnya tidak ada pengecekan ini, jadi kalau period somehow
+        # lolos dari Pydantic dengan nilai aneh, bisa masuk ke SQL string.
+        if period not in _ALLOWED_PERIODS:
+            raise ValueError(
+                f"Parameter 'period' tidak valid: '{period}'. "
+                f"Nilai yang diizinkan: {sorted(_ALLOWED_PERIODS)}"
+            )
+        return period
+
+    def _build_date_condition(self, period: str, start_date: str, end_date: str):
         """
         Mengembalikan tuple (condition_str, params_dict).
 
-        ISSUE #4 FIX: Validasi eksplisit jika period='custom' tapi
-        start_date/end_date tidak diisi — sebelumnya fallback diam-diam ke
-        'daily' (1 hari) tanpa error, yang bisa membingungkan pemanggil.
+        FIX #3: condition_str untuk branch daily/weekly/monthly sekarang
+        menggunakan :interval_days sebagai named parameter, bukan f-string integer.
+        Meskipun nilai days dari dict hardcoded (bukan user input), ini lebih
+        defensively correct dan konsisten dengan branch custom yang sudah pakai params.
+
+        FIX #4: Validasi eksplisit untuk period='custom' tetap dipertahankan.
         """
+        period = self._validate_period(period)
+
         if period == "custom":
             if not start_date or not end_date:
                 raise ValueError(
@@ -31,22 +53,21 @@ class DashboardService:
                 "event_time >= :start AND event_time <= :end",
                 {
                     "start": f"{start_date} 00:00:00",
-                    "end":   f"{end_date} 23:59:59",
+                    "end": f"{end_date} 23:59:59",
                 },
             )
 
-        days_map = {"daily": 1, "weekly": 7, "monthly": 30}
-        days = days_map.get(period, 1)
+        days = _DAYS_MAP[period]  # Selalu ada karena sudah divalidasi di atas
         return (
-            f"event_time >= DATE_SUB(NOW(), INTERVAL {days} DAY)",
-            {},
+            "event_time >= DATE_SUB(NOW(), INTERVAL :interval_days DAY)",
+            {"interval_days": days},
         )
 
     def get_audit_summary(self, period: str, start_date: str = None, end_date: str = None):
         condition, params = self._build_date_condition(period, start_date, end_date)
 
+        # FIX #3: date_format dari whitelist, condition pakai named params — aman
         query = text(f"""
-            SELECT result, COUNT(*) as count
             SELECT result, COUNT(*) as count
             FROM (
                 SELECT result, event_time FROM audit_event
@@ -72,11 +93,8 @@ class DashboardService:
     def get_latency_chart(self, period: str, start_date: str = None, end_date: str = None):
         condition, params = self._build_date_condition(period, start_date, end_date)
 
-        # ISSUE #3 FIX: Gunakan whitelist _DATE_FORMAT_MAP daripada
-        # menginterpolasi langsung dari nilai period ke dalam SQL.
-        # Sebelumnya: f"DATE_FORMAT(event_time, '{date_format}')" — pola
-        # ini berbahaya jika period pernah datang dari input luar.
-        date_format = _DATE_FORMAT_MAP.get(period, "%Y-%m-%d")
+        # FIX #3: date_format diambil dari whitelist dict, TIDAK dari input user
+        date_format = _DATE_FORMAT_MAP[period]  # Selalu ada karena sudah divalidasi
 
         query = text(f"""
             SELECT
@@ -114,7 +132,7 @@ class DashboardService:
             record = conn.execute(query).mappings().first()
 
         return {
-            "total_executions":   record["total_executions"] or 0,
+            "total_executions": record["total_executions"] or 0,
             "success_executions": record["success_count"] or 0,
             "last_execution": (
                 record["last_execution"].strftime("%Y-%m-%d %H:%M:%S")
@@ -138,30 +156,33 @@ class DashboardService:
         # Sebelumnya: f"LIMIT {limit} OFFSET {offset}" — rentan jika tipe-nya
         # bisa dimanipulasi. Dengan named params, SQLAlchemy menjamin tipe integer.
         offset = (page - 1) * limit
+        params = {**params, "limit": limit, "offset": offset}
 
-        count_query = text(f"SELECT COUNT(*) as total FROM audit_event WHERE {condition}")
-        data_query  = text(f"""
+        count_query = text(f"""
+            SELECT COUNT(*) as total FROM audit_event WHERE {condition}
+        """)
+        data_query = text(f"""
             SELECT id, event_time, actor_org_id as actor, action,
                    resource_id, result, latency_ms
             FROM audit_event
             WHERE {condition}
             ORDER BY event_time DESC
-            LIMIT {limit} OFFSET {offset}
+            LIMIT :limit OFFSET :offset
         """)
 
 
         with self.engine.connect() as conn:
             total_rows = conn.execute(count_query, params).scalar()
-            records    = conn.execute(data_query,  params).mappings().all()
+            records = conn.execute(data_query, params).mappings().all()
 
         total_pages = math.ceil(total_rows / limit) if total_rows else 1
         return {
-            "data":        [dict(r) for r in records],
-            "page":        page,
+            "data": [dict(r) for r in records],
+            "page": page,
             "total_pages": total_pages,
-            "total_rows":  total_rows,
-            "has_next":    page < total_pages,
-            "has_prev":    page > 1,
+            "total_rows": total_rows,
+            "has_next": page < total_pages,
+            "has_prev": page > 1,
         }
 
     def get_access_logs_pagination(
@@ -184,28 +205,31 @@ class DashboardService:
 
         # FIX #4: sama seperti get_audit_logs_pagination
         offset = (page - 1) * limit
+        params = {**params, "limit": limit, "offset": offset}
 
-        count_query = text(f"SELECT COUNT(*) as total FROM access_event WHERE {condition}")
-        data_query  = text(f"""
+        count_query = text(f"""
+            SELECT COUNT(*) as total FROM access_event WHERE {condition}
+        """)
+        data_query = text(f"""
             SELECT id, event_time, actor_user_id as actor, action,
                    resource_type, resource_id, ip_address, result, latency_ms
             FROM access_event
             WHERE {condition}
             ORDER BY event_time DESC
-            LIMIT {limit} OFFSET {offset}
+            LIMIT :limit OFFSET :offset
         """)
 
 
         with self.engine.connect() as conn:
             total_rows = conn.execute(count_query, params).scalar()
-            records    = conn.execute(data_query,  params).mappings().all()
+            records = conn.execute(data_query, params).mappings().all()
 
         total_pages = math.ceil(total_rows / limit) if total_rows else 1
         return {
-            "data":        [dict(r) for r in records],
-            "page":        page,
+            "data": [dict(r) for r in records],
+            "page": page,
             "total_pages": total_pages,
-            "total_rows":  total_rows,
-            "has_next":    page < total_pages,
-            "has_prev":    page > 1,
+            "total_rows": total_rows,
+            "has_next": page < total_pages,
+            "has_prev": page > 1,
         }
