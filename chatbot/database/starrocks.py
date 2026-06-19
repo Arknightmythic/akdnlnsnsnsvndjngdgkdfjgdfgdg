@@ -84,8 +84,8 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                     `checkpoint_id` VARCHAR(255) NOT NULL,
                     `parent_checkpoint_id` VARCHAR(255),
                     `type` VARCHAR(50),
-                    `checkpoint` VARCHAR(100000),
-                    `metadata` VARCHAR(100000),
+                    `checkpoint` STRING,
+                    `metadata` STRING,
                     `metadata_type` VARCHAR(50)
                 ) ENGINE=OLAP
                 PRIMARY KEY (`pk`)
@@ -104,7 +104,7 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                     `idx` INT NOT NULL,
                     `channel` VARCHAR(255) NOT NULL,
                     `type` VARCHAR(50),
-                    `value` VARCHAR(100000),
+                    `value` STRING,
                     `task_path` VARCHAR(1024)
                 ) ENGINE=OLAP
                 PRIMARY KEY (`pk`)
