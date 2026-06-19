@@ -432,6 +432,7 @@ class ReasoningService:
     def bulk_update_mm_results(self, results: list):
         success_data = []
         error_data   = []
+        sample_id    = None  # Ditambahkan untuk mencari referensi file_id
 
         for r in results:
             if r["status"] == "success":
@@ -447,6 +448,11 @@ class ReasoningService:
                     sample_id = r["id"]
             else:
                 error_data.append({"p_id": r["id"], "p_status": "FAILED"})
+                if sample_id is None:
+                    sample_id = r["id"]
+
+        if not sample_id:
+            return
 
         with self.engine.begin() as conn:
             try:
@@ -464,8 +470,31 @@ class ReasoningService:
             finally:
                 conn.execute(text("SET enable_insert_partial_update=false;"))
 
-        print(f"[Bulk Update] {len(success_data)} sukses & {len(error_data)} gagal.")
+            # --- BAGIAN BARU: Cek & Update Sync Status ---
+            # 1. Cari file_id dari salah satu row yang sedang diproses
+            row_file = conn.execute(
+                text("SELECT file_id FROM manual_matches WHERE id = :id"), 
+                {"id": sample_id}
+            ).mappings().first()
+            
+            file_id = row_file["file_id"] if row_file else None
 
+            if file_id:
+                # 2. Hitung apakah masih ada sisa baris yang PENDING/PROCESSING di file tersebut
+                count_res = conn.execute(
+                    text("SELECT COUNT(*) as c FROM manual_matches "
+                         "WHERE file_id = :file_id AND reasoning_status IN ('PENDING', 'PROCESSING')"),
+                    {"file_id": file_id}
+                ).mappings().first()
+                
+                # 3. Jika batch ini adalah penyelesaian akhir (count = 0), update tabel
+                if count_res and count_res["c"] == 0:
+                    conn.execute(
+                        text("UPDATE uploaded_files SET sync_status = 2 WHERE file_id = :file_id"),
+                        {"file_id": file_id}
+                    )
+
+        print(f"[Bulk Update] {len(success_data)} sukses & {len(error_data)} gagal.")
     def process_reasoning(self, file_id, dry_run=False, limit=None):
         """Proses semua baris PENDING untuk satu file_id (sync, untuk testing)."""
         start_total = time.perf_counter()
