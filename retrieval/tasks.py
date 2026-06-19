@@ -1,7 +1,7 @@
 import os
 import io
-import json # <-- Wajib tambah
-import redis # <-- Wajib tambah (pastikan package redis terinstall)
+import json
+import asyncio
 import pandas as pd
 from celery import Task
 from sqlalchemy import create_engine, text
@@ -10,9 +10,13 @@ from minio import Minio
 from redis import Redis as SyncRedis
 from urllib.parse import urlparse
 
+from redis import Redis as SyncRedis
+from urllib.parse import urlparse
+
 from worker import celery_app
 from retrieval.repository import RetrieveRepository
 from util.parquet_loader import ParquetLoader
+
 
 
 def _make_engine():
@@ -22,9 +26,13 @@ def _make_engine():
         pool_pre_ping=True,
         pool_recycle=1800,
         pool_size=2,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+        pool_size=2,
     )
 
 
+# FIX #2: Parse dari REDIS_URL, bukan host/port/db terpisah yang tidak ada di .env
 def _make_sync_redis() -> SyncRedis:
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     parsed = urlparse(redis_url)
@@ -37,10 +45,15 @@ def _make_sync_redis() -> SyncRedis:
     )
 
 
+# FIX #8: Helper untuk menjalankan coroutine secara aman di dalam Celery worker.
+# asyncio.run() membuat event loop baru setiap kali — aman di Celery solo/prefork,
+# tapi di gevent/eventlet bisa konflik dengan loop yang sudah ada.
+# Pendekatan ini lebih defensive: cek dulu apakah sudah ada loop yang running.
 def _run_async(coro):
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
+            # Gevent/eventlet context — buat loop baru di thread baru
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(asyncio.run, coro)
@@ -48,6 +61,7 @@ def _run_async(coro):
         else:
             return loop.run_until_complete(coro)
     except RuntimeError:
+        # Tidak ada event loop di thread ini — buat yang baru
         return asyncio.run(coro)
 
 
@@ -61,7 +75,6 @@ class ExportTask(Task):
             self._engine = _make_engine()
         return self._engine
 
-
     @property
     def minio_client(self):
         if self._minio_client is None:
@@ -70,10 +83,16 @@ class ExportTask(Task):
                 access_key=os.getenv("MINIO_ACCESS_KEY"),
                 secret_key=os.getenv("MINIO_SECRET_KEY"),
                 secure=False,
-                secure=False,
             )
         return self._minio_client
 
+
+@celery_app.task(
+    bind=True,
+    base=ExportTask,
+    name="retrieval.generate_export_csv",
+    acks_late=True,
+)
 
 @celery_app.task(
     bind=True,
@@ -86,14 +105,14 @@ def generate_export_csv(self, file_id: str):
         repo = RetrieveRepository(self.engine)
         repo.update_export_status(file_id, "PROCESSING")
 
+
         meta = repo.get_minio_path(file_id)
         if not meta:
             raise Exception("File meta not found")
 
-
         bucket_name = os.getenv("RAW_BUCKET_NAME")
 
-        
+        # 1. Ambil data dari StarRocks
         export_data = repo.get_all_export_data(file_id)
         match_rows = export_data["match"]
         unmatch_rows = export_data["unmatch"]
@@ -101,19 +120,21 @@ def generate_export_csv(self, file_id: str):
         incoming_ids = [str(r["id_incoming"]) for r in match_rows + unmatch_rows]
         master_niks = [r["nik_master"] for r in match_rows if r["nik_master"]]
 
-        
+        # 2. Ambil data dari Parquet (MinIO)
+        # FIX #8: ganti asyncio.run() dengan _run_async() yang aman di semua pool mode
         parquet_loader = ParquetLoader(self.minio_client, bucket_name)
         parquet_map = _run_async(
             parquet_loader.load_rows(file_id, meta["minio_path"], incoming_ids)
         )
 
-        
+        # 3. Ambil data Master (StarRocks)
         master_map = repo.get_master_by_niks(master_niks)
 
-        
+        # 4. Konstruksi Data Match (dinamis)
         match_list = []
         for r in match_rows:
             inc = parquet_map.get(str(r["id_incoming"]), {}).copy()
+            inc.pop("id", None)
             inc.pop("id", None)
             mst = master_map.get(r["nik_master"], {})
             row_data = {**inc}
@@ -121,7 +142,7 @@ def generate_export_csv(self, file_id: str):
                 row_data[f"master_{k}"] = v
             match_list.append(row_data)
 
-        
+        # 5. Konstruksi Data Unmatch (dinamis)
         unmatch_list = []
         for r in unmatch_rows:
             inc = parquet_map.get(str(r["id_incoming"]), {}).copy()
@@ -137,35 +158,28 @@ def generate_export_csv(self, file_id: str):
         self.minio_client.put_object(
             bucket_name, match_path, io.BytesIO(csv_match), len(csv_match)
         )
-       
+
         df_unmatch = pd.DataFrame(unmatch_list)
         csv_unmatch = df_unmatch.to_csv(index=False, sep=";").encode("utf-8")
         self.minio_client.put_object(
             bucket_name, unmatch_path, io.BytesIO(csv_unmatch), len(csv_unmatch)
         )
-        
 
-        
+        # 7. Update status ke READY
         repo.update_export_status(file_id, "READY", match_path, unmatch_path)
         return {"status": "SUCCESS", "file_id": file_id}
+
 
     except Exception as e:
         repo.update_export_status(file_id, "FAILED")
         raise self.retry(exc=e, max_retries=3, countdown=30)
-    
 
-# PASTIKAN INDENTASI task ini rata kiri (tidak menjorok ke dalam)
+
 @celery_app.task(name="retrieval.flush_access_logs", queue="audit_queue")
 def flush_access_logs_to_starrocks():
-    # 1. Inisialisasi Redis (sesuaikan dengan environment kamu)
-    redis_client = redis.Redis(
-        host=os.getenv("REDIS_HOST", "localhost"),
-        port=int(os.getenv("REDIS_PORT", 6379)),
-        db=int(os.getenv("REDIS_DB", 0)),
-        decode_responses=True # Agar output lpop berupa string, bukan bytes
-    ) 
-    
-    # 2. Gunakan fungsi engine yang sudah ada di tasks.py kamu
+    # FIX #2: Gunakan _make_sync_redis() yang parse dari REDIS_URL,
+    # bukan hardcode host/port/db yang sebelumnya selalu jatuh ke localhost:6379
+    redis_client = _make_sync_redis()
     engine = _make_engine()
 
     logs = []
@@ -177,9 +191,8 @@ def flush_access_logs_to_starrocks():
         logs.append(json.loads(item))
 
     if not logs:
-        return # Keluar jika tidak ada log baru
+        return {"flushed": 0}
 
-    # Query untuk BULK INSERT
     query = text("""
         INSERT INTO access_event (
             actor_user_id, action, resource_type, resource_id,
@@ -192,10 +205,10 @@ def flush_access_logs_to_starrocks():
 
     try:
         with engine.begin() as conn:
-            # Mengirim array dictionary akan memicu executemany
             conn.execute(query, logs)
+        return {"flushed": len(logs)}
     except Exception as e:
-        print(f"Failed to bulk insert audit logs: {e}")
-        # Jika gagal, kembalikan data ke redis agar tidak hilang
-        for log in logs:
+        # Kembalikan log ke Redis agar tidak hilang jika DB gagal
+        for log in reversed(logs):
             redis_client.lpush("audit_access_logs", json.dumps(log))
+        raise e
