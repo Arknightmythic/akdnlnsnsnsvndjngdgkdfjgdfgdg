@@ -26,10 +26,10 @@ class PromptInjectionGuardrail(AgentMiddleware):
             temperature=0,
             base_url=os.getenv("OLLAMA_CLOUD_BASE_URL"),
             api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
-            model_provider="openai",
+            model_provider="ollama",
             stream_usage=True
         ).with_structured_output(PromptInjectionGuardrailOutput)
-        self._chain = self._prompt |  self._model
+        self._chain = self._prompt | self._model
 
     @hook_config(can_jump_to=["end", "model"])
     def before_agent(self, state: AgentState, runtime: Runtime)-> AgentState:

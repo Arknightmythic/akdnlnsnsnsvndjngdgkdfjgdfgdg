@@ -30,7 +30,7 @@ class TitleGenerator:
             base_url=base_url,
             temperature=0,
             api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
-            model_provider="openai",
+            model_provider="ollama",
             stream_usage=True
         ).with_structured_output(TitleOutput)
 
@@ -49,7 +49,7 @@ class ChatbotHandler:
             base_url=base_url,
             temperature=0,
             api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
-            model_provider="openai",
+            model_provider="ollama",
             stream_usage=True
         )
         self._system_prompt = SystemMessage(SYNCHRONO_AGENT_SYSTEM_PROMPT)
