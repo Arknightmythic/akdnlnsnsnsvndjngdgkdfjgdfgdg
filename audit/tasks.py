@@ -73,6 +73,7 @@ def execute_audit_retention(self):
                 WHERE event_time < DATE_SUB(NOW(), INTERVAL {retention_rules['ACCESS_LOG']} DAY)
             """))
             logger.info(f"Deleted access_event older than {retention_rules['ACCESS_LOG']} days")
+            
 
             # FIX #5: Gunakan _safe_policy_id untuk INSERT retention_action.
             # Jika policy_id None (tabel retention_policy kosong), INSERT tetap
@@ -110,6 +111,7 @@ def execute_audit_retention(self):
 
         logger.info("Retention task completed successfully.")
         return "SUCCESS"
+       
 
     except Exception as e:
         logger.error(f"Failed to execute retention task: {e}")
