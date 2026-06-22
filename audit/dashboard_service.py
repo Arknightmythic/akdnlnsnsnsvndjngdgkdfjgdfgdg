@@ -69,7 +69,6 @@ class DashboardService:
         # FIX #3: date_format dari whitelist, condition pakai named params — aman
         query = text(f"""
             SELECT result, COUNT(*) as count
-            SELECT result, COUNT(*) as count
             FROM (
                 SELECT result, event_time FROM audit_event
                 UNION ALL

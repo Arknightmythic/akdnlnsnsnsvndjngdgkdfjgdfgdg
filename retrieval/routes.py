@@ -86,7 +86,6 @@ class RetrieveDataRoutes:
         async def get_history_data(
             request: Request,
             background_tasks: BackgroundTasks,
-            background_tasks: BackgroundTasks,
             page: int = Query(..., ge=1),
             institution_name: str = Query(...),
             start_date: str = Query(...),
@@ -101,7 +100,6 @@ class RetrieveDataRoutes:
                 page=page,
                 institution_name=institution_name,
                 start_date=start_date,
-                end_date=end_date,
                 end_date=end_date,
             )
 
@@ -121,9 +119,7 @@ class RetrieveDataRoutes:
                     request.app.state.minio_client,
                     request.app.state.raw_bucket,
                     redis=request.app.state.redis,
-                    redis=request.app.state.redis,
                 ),
-                redis=request.app.state.redis,
                 redis=request.app.state.redis,
             )
             return await handler.get_preview_data(file_id=file_id)
@@ -145,9 +141,7 @@ class RetrieveDataRoutes:
                     request.app.state.minio_client,
                     request.app.state.raw_bucket,
                     redis=request.app.state.redis,
-                    redis=request.app.state.redis,
                 ),
-                redis=request.app.state.redis,
                 redis=request.app.state.redis,
             )
             return await handler.get_manual_review_data(file_id=file_id, page=page)
@@ -169,7 +163,6 @@ class RetrieveDataRoutes:
                 file_id=file_id,
                 id_incoming=id_incoming,
                 match_status=payload.match_status,
-                match_status=payload.match_status,
             )
 
         @self.router.patch("/mark-as-completed/files/{file_id}")
@@ -184,8 +177,6 @@ class RetrieveDataRoutes:
             )
             handler = RetrieveDataHandler(
                 engine=request.app.state.starrocks_engine,
-                minio_client=request.app.state.minio_client,
-                bucket_name=request.app.state.raw_bucket,
                 minio_client=request.app.state.minio_client,
                 bucket_name=request.app.state.raw_bucket,
             )
@@ -221,7 +212,6 @@ class RetrieveDataRoutes:
             handler = RetrieveDataHandler(
                 engine=request.app.state.starrocks_engine,
                 minio_client=request.app.state.minio_client,
-                bucket_name=request.app.state.raw_bucket,
                 bucket_name=request.app.state.raw_bucket,
             )
             return handler.get_export_download_url(file_id, type)
