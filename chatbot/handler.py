@@ -127,7 +127,7 @@ class ChatbotHandler:
                     "configurable": {"thread_id": conversation_id}
                 }
             ):
-            if metadata["ls_integration"] == "langchain_chat_model" and metadata["langgraph_node"] == "PromptInjectionGuardrail.before_agent":
+            if metadata["ls_integration"] == "langchain_chat_model" and (metadata["langgraph_node"] == "PromptInjectionGuardrail.before_agent" or metadata["langgraph_node"] == "SummarizationMiddleware.before_model"):
                 continue
 
             data = {

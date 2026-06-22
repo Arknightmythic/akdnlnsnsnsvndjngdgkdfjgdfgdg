@@ -14,11 +14,13 @@ from langgraph.checkpoint.base import (
     get_checkpoint_metadata,
 )
 from langgraph.checkpoint.serde.types import ChannelProtocol
+from langgraph.checkpoint.mysql import pymysql
 import json
 import random
 import threading
 import binascii
 import hashlib
+import zlib
 
 from ingestion.starrocks_connection import engine
 
@@ -46,14 +48,19 @@ JsonDict = Dict[str, Any]
 def _ensure_bytes(data: Any) -> Any:
     if isinstance(data, str):
         try:
-            return binascii.unhexlify(data)
+            decoded = binascii.unhexlify(data)
+            try:
+                return zlib.decompress(decoded)
+            except zlib.error:
+                return decoded
         except Exception:
             return data.encode("utf-8", errors="surrogateescape")
     return data
 
 def _to_hex(data: Any) -> str:
     if isinstance(data, (bytes, bytearray)):
-        return binascii.hexlify(data).decode("ascii")
+        compressed = zlib.compress(data)
+        return binascii.hexlify(compressed).decode("ascii")
     return data
 
 def _generate_pk(*args: Any) -> str:
@@ -75,7 +82,6 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
 
     def setup(self) -> None:
         with engine.connect() as connection:
-            # Table for checkpoint state
             connection.execute(text("""
                 CREATE TABLE IF NOT EXISTS `checkpoint` (
                     `pk` VARCHAR(128) NOT NULL,
@@ -93,7 +99,6 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                 PROPERTIES("replication_num" = "1");
             """))
             
-            # Table for writes/state changes
             connection.execute(text("""
                 CREATE TABLE IF NOT EXISTS `write` (
                     `pk` VARCHAR(128) NOT NULL,
@@ -182,7 +187,7 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                             (
                                 r["task_id"],
                                 r["channel"],
-                                self.serde.loads_typed((type_, _ensure_bytes(r["value"]))),
+                                self.serde.loads_typed((type_, _ensure_bytes(r["value"]))) if r["value"] not in (None, "", b"") else None,
                             )
                             for r in results
                         ]
@@ -277,8 +282,7 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                             (
                                 tr["task_id"],
                                 tr["channel"],
-                                self.serde.loads_typed((type_, _ensure_bytes(tr["value"])))
-                                if tr["value"] not in (None, "", b"") else None,
+                                self.serde.loads_typed((type_, _ensure_bytes(tr["value"]))) if tr["value"] not in (None, "", b"") else None,
                             )
                             for tr in task_results
                         ]
@@ -465,7 +469,7 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                             (
                                 r["task_id"],
                                 r["channel"],
-                                self.serde.loads_typed((type_, _ensure_bytes(r["value"]))),
+                                self.serde.loads_typed((type_, _ensure_bytes(r["value"]))) if r["value"] not in (None, "", b"") else None,
                             )
                             for r in results
                         ]
@@ -560,7 +564,7 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                             (
                                 tr["task_id"],
                                 tr["channel"],
-                                self.serde.loads_typed((type_, _ensure_bytes(tr["value"]))),
+                                self.serde.loads_typed((type_, _ensure_bytes(tr["value"]))) if tr["value"] not in (None, "", b"") else None,
                             )
                             for tr in task_results
                         ]
@@ -679,6 +683,23 @@ class StarRocksSaver(BaseCheckpointSaver[str]):
                 else:
                     raise e
 
+    def delete_thread(self, thread_id: str) -> None:
+        """Delete all checkpoints and writes associated with a thread ID."""
+        with engine.connect() as connection:
+            connection.execute(
+                text("DELETE FROM `checkpoint` WHERE thread_id = :thread_id"),
+                {"thread_id": thread_id}
+            )
+            connection.execute(
+                text("DELETE FROM `write` WHERE thread_id = :thread_id"),
+                {"thread_id": thread_id}
+            )
+            connection.commit()
+
+    async def adelete_thread(self, thread_id: str) -> None:
+        """Delete all checkpoints and writes associated with a thread ID (async)."""
+        self.delete_thread(thread_id)
+        
     def get_next_version(self, current: Optional[str], channel: ChannelProtocol) -> str:
         if current is None:
             current_v = 0

@@ -5,7 +5,11 @@ import asyncio
 import pandas as pd
 from celery import Task
 from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text
 from minio import Minio
+from redis import Redis as SyncRedis
+from urllib.parse import urlparse
+
 from redis import Redis as SyncRedis
 from urllib.parse import urlparse
 
@@ -14,10 +18,14 @@ from retrieval.repository import RetrieveRepository
 from util.parquet_loader import ParquetLoader
 
 
+
 def _make_engine():
     return create_engine(
         f"mysql+pymysql://{os.getenv('STARROCKS_USER')}:{os.getenv('STARROCKS_PASSWORD')}"
         f"@{os.getenv('STARROCKS_HOST')}:{os.getenv('STARROCKS_PORT')}/{os.getenv('STARROCKS_DATABASE')}",
+        pool_pre_ping=True,
+        pool_recycle=1800,
+        pool_size=2,
         pool_pre_ping=True,
         pool_recycle=1800,
         pool_size=2,
@@ -133,8 +141,16 @@ def generate_export_csv(self, file_id: str):
         self.minio_client.put_object(
             bucket_name, match_path, io.BytesIO(csv_match), len(csv_match)
         )
+        csv_match = df_match.to_csv(index=False, sep=";").encode("utf-8")
+        self.minio_client.put_object(
+            bucket_name, match_path, io.BytesIO(csv_match), len(csv_match)
+        )
 
         df_unmatch = pd.DataFrame(unmatch_list)
+        csv_unmatch = df_unmatch.to_csv(index=False, sep=";").encode("utf-8")
+        self.minio_client.put_object(
+            bucket_name, unmatch_path, io.BytesIO(csv_unmatch), len(csv_unmatch)
+        )
         csv_unmatch = df_unmatch.to_csv(index=False, sep=";").encode("utf-8")
         self.minio_client.put_object(
             bucket_name, unmatch_path, io.BytesIO(csv_unmatch), len(csv_unmatch)

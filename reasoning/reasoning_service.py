@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import json
 import time
 from datetime import date, datetime
 from dotenv import load_dotenv
@@ -12,6 +13,7 @@ from .schema import ReasoningOutput
 from .prompt import SYSTEM_PROMPT
 from .pattern_detector import PatternDetector
 from audit.audit_service import AuditService
+from audit.audit_service import AuditService
 
 load_dotenv()
 
@@ -20,6 +22,8 @@ class ReasoningService:
     """
     Service utama untuk Reasoning AI.
 
+    Sumber data : tabel `manual_matches` + `master`
+    Tabel yang DITULIS : `manual_matches` dan `reasoning_patterns`
     Sumber data : tabel `manual_matches` + `master`
     Tabel yang DITULIS : `manual_matches` dan `reasoning_patterns`
     """
@@ -433,6 +437,9 @@ class ReasoningService:
         for r in results:
             if r["status"] == "success":
                 success_data.append({
+                    "p_id": r["id"], "p_reason": r["reason"],
+                    "p_pattern": r["pattern_name"], "p_source": r["source"],
+                    "p_status": "COMPLETED",
                     "p_id": r["id"], "p_reason": r["reason"],
                     "p_pattern": r["pattern_name"], "p_source": r["source"],
                     "p_status": "COMPLETED",
