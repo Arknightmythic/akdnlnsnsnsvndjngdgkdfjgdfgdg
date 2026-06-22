@@ -150,12 +150,13 @@ def generate_export_csv(self, file_id: str):
         self.minio_client.put_object(
             bucket_name, match_path, io.BytesIO(csv_match), len(csv_match)
         )
-
+       
         df_unmatch = pd.DataFrame(unmatch_list)
         csv_unmatch = df_unmatch.to_csv(index=False, sep=";").encode("utf-8")
         self.minio_client.put_object(
             bucket_name, unmatch_path, io.BytesIO(csv_unmatch), len(csv_unmatch)
         )
+        
 
         
         repo.update_export_status(file_id, "READY", match_path, unmatch_path)
