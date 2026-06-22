@@ -4,6 +4,8 @@ import logging
 from celery import Task
 from sqlalchemy import create_engine
 from minio import Minio
+from urllib.parse import urlparse
+from redis import Redis as SyncRedis
 
 from worker import celery_app
 from processing.handler import MatchFileHandler
@@ -12,6 +14,8 @@ from retrieval.repository import RetrieveRepository
 from audit.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
+
+LOG_TTL_SECONDS = 3600
 
 
 def _make_engine():
@@ -24,15 +28,58 @@ def _make_engine():
     )
 
 
+def _make_sync_redis() -> SyncRedis:
+    """Buat koneksi Redis synchronous — sama polanya dengan retrieval/tasks.py."""
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    parsed = urlparse(redis_url)
+    return SyncRedis(
+        host=parsed.hostname or "localhost",
+        port=parsed.port or 6379,
+        db=int(parsed.path.lstrip("/") or 0),
+        password=parsed.password or None,
+        decode_responses=True,
+    )
+
+
+def push_log(redis_client: SyncRedis, file_id: str, message: str, level: str = "INFO"):
+    """
+    Push satu baris log ke Redis list `matching_log:{file_id}`.
+    Frontend membaca list ini via SSE endpoint.
+
+    Format payload JSON:
+    {
+        "message": "Incoming rows: 200000",
+        "level"  : "INFO" | "SUCCESS" | "ERROR",
+        "ts"     : "<timestamp ISO>"
+    }
+    """
+    import datetime
+    payload = json.dumps({
+        "message": message,
+        "level": level,
+        "ts": datetime.datetime.now().isoformat(timespec="seconds"),
+    })
+    key = f"matching_log:{file_id}"
+    redis_client.rpush(key, payload)
+    redis_client.expire(key, LOG_TTL_SECONDS)
+
+
 class MatchTask(Task):
     _engine  = None
     _handler = None
+    _redis   = None
 
     @property
     def engine(self):
         if self._engine is None:
             self._engine = _make_engine()
         return self._engine
+
+    @property
+    def redis(self):
+        if self._redis is None:
+            self._redis = _make_sync_redis()
+        return self._redis
 
     @property
     def handler(self):
@@ -65,17 +112,36 @@ def run_matching_task(self, file_id: str):
     audit     = AuditService(self.engine)
     retrieval = RetrieveRepository(self.engine)
     starrocks = StarrocksService(self.engine)
+    redis     = self.redis
 
-    # BEFORE_STATE: ambil status file sebelum proses matching dimulai.
-    # Ini dilakukan di luar try/except agar state yang ter-capture adalah
-    # kondisi SEBELUM apapun diubah, bukan state di tengah proses.
+    
     before_state = retrieval.get_matching_status_before(file_id)
+
+    
+    push_log(redis, file_id, "Mulai matching untuk file_id: " + file_id)
+    push_log(redis, file_id, "Processing data...")
 
     try:
         logger.info(f"Mulai matching untuk file_id: {file_id}")
+
+        
+        self.handler.matching_service_new.redis  = redis
+        self.handler.matching_service_new.file_id_ctx = file_id
+
         result = self.handler.process_file(file_id)
 
         starrocks.set_matching_task_info(file_id, self.request.id, "SUCCESS")
+
+        
+        push_log(
+            redis, file_id,
+            f"Task succeeded — matched: {result.get('matched_rows', 0):,} | "
+            f"unmatched: {result.get('unmatched_rows', 0):,} | "
+            f"manual_review: {result.get('manual_review_rows', 0):,}",
+            level="SUCCESS",
+        )
+        
+        push_log(redis, file_id, "__DONE__", level="SUCCESS")
 
         audit.log_audit_event(
             actor_org_id="system_auto",
@@ -94,8 +160,10 @@ def run_matching_task(self, file_id: str):
 
         starrocks.set_matching_task_info(file_id, None, "FAILED")
 
-        # before_state sudah di-fetch sebelum try, jadi tetap akurat
-        # meski error terjadi di tengah jalan
+        
+        push_log(redis, file_id, f"Task FAILED: {exc}", level="ERROR")
+        push_log(redis, file_id, "__DONE__", level="ERROR")
+
         try:
             audit.log_audit_event(
                 actor_org_id="system_auto",

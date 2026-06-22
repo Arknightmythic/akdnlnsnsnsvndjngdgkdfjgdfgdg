@@ -11,6 +11,7 @@ from audit.audit_service import AuditService
 from reasoning.tasks import trigger_rows_for_file
 from retrieval.tasks import generate_export_csv
 
+
 class MatchingServiceV2:
     def __init__(self, engine, minio_client, bucket_name, grade_rules):
         self.scoring_service = ScoringService()
@@ -18,7 +19,23 @@ class MatchingServiceV2:
         self.starrocks_service = StarrocksService(engine)
         self.grade_rules = grade_rules
         self.audit_service = AuditService(engine)
-        
+
+        # ── Injected dari tasks.py setelah inisialisasi ────────────────────
+        # redis dan file_id_ctx di-set oleh run_matching_task sebelum process_file
+        # dipanggil. Default None agar tetap aman dipakai tanpa worker (unit test).
+        self.redis = None
+        self.file_id_ctx = None
+
+    # ─── Helpers ──────────────────────────────────────────────────────────────
+
+    def _log(self, message: str, level: str = "INFO"):
+        """Push satu baris log ke Redis jika redis tersedia."""
+        if self.redis is not None and self.file_id_ctx is not None:
+            from processing.tasks import push_log
+            push_log(self.redis, self.file_id_ctx, message, level)
+
+    # ─── Core methods (tidak berubah kecuali penambahan _log) ─────────────────
+
     def get_matching_data(self, file_id, grade):
         uploaded_file = self.starrocks_service.get_uploaded_file(file_id)
 
@@ -33,13 +50,15 @@ class MatchingServiceV2:
         incoming_df = self.object_storage_service.load_parquet_from_minio(
             uploaded_file["minio_path"]
         )
+        self._log(f"Incoming rows: {incoming_df.height:,}")
         print(f"Incoming rows: {incoming_df.height}")
 
         master_df = self.starrocks_service.fetch_master_dataset()
+        self._log(f"Master rows fetched: {master_df.height:,}")
         print(f"Master rows fetched: {master_df.height}")
 
         return uploaded_file, incoming_df, master_df
-    
+
     def classify_result(self, grade_code: str, score: float, missing_count: int):
         rule = self.grade_rules[grade_code]
 
@@ -69,10 +88,11 @@ class MatchingServiceV2:
             return 2
 
         return 3
-    
+
     def trigger_ai_reasoning(self, file_id):
         try:
             trigger_rows_for_file.delay(file_id)
+            self._log("Triggering AI reasoning...")
             print(f"Enqueued reasoning orchestrator for file {file_id}")
         except Exception as e:
             print(f"Failed to enqueue reasoning orchestrator for {file_id}: {e}")
@@ -117,6 +137,7 @@ class MatchingServiceV2:
         con.register("master_df", master_df.to_arrow())
 
         joined_df = con.execute(self.starrocks_service.load_matching_query(grade)).pl()
+        self._log(f"Joined rows: {joined_df.height:,}")
         print(f"Joined rows: {joined_df.height}")
 
         results_map = {}
@@ -161,7 +182,7 @@ class MatchingServiceV2:
                                 b_kecamatan=kecamatan_clean, a_kecamatan=kecamatan_master_clean,
                                 b_kelurahan=kelurahan_clean, a_kelurahan=kelurahan_master_clean,
                                 b_nama_ibu=nama_ibu_clean, a_nama_ibu=nama_ibu_master_clean)
-            
+
             result = self.classify_result(grade, score, missing_count)
             existing = results_map.get(incoming_row_id)
 
@@ -220,8 +241,10 @@ class MatchingServiceV2:
         all_manual_review_rows = []
         final_sync_status = 3
 
-        for idx, partition in enumerate(self.partition_dataframe(incoming_df,partition_size)):
-            results, manual_review_rows, sync_status = self.process_partition(uploaded_file, partition, master_df, file_id, grade)
+        for idx, partition in enumerate(self.partition_dataframe(incoming_df, partition_size)):
+            results, manual_review_rows, sync_status = self.process_partition(
+                uploaded_file, partition, master_df, file_id, grade
+            )
 
             all_results.extend(results)
             all_manual_review_rows.extend(manual_review_rows)
@@ -229,11 +252,12 @@ class MatchingServiceV2:
             if sync_status == 1:
                 final_sync_status = 1
 
-            print(
-                f"Partition {idx}: "
-                f"results={len(results)}, "
-                f"manual_reviews={len(manual_review_rows)}"
+            partition_msg = (
+                f"Partition {idx}: results={len(results):,}, "
+                f"manual_reviews={len(manual_review_rows):,}"
             )
+            self._log(partition_msg)
+            print(partition_msg)
 
         insert_query = text("""
             INSERT INTO institution (
@@ -260,21 +284,34 @@ class MatchingServiceV2:
             WHERE file_id = :file_id
         """)
 
-        matching_time_ms = round((time.perf_counter() - start) * 1000,2)
+        matching_time_ms = round((time.perf_counter() - start) * 1000, 2)
 
-        print(f"Institution rows: {len(all_results)}")
-        print(f"Manual review rows: {len(all_manual_review_rows)}")
+        inst_msg = f"Institution rows: {len(all_results):,}"
+        mr_msg   = f"Manual review rows: {len(all_manual_review_rows):,}"
+        self._log(inst_msg)
+        self._log(mr_msg)
+        print(inst_msg)
+        print(mr_msg)
 
         if all_manual_review_rows:
+            self._log("First manual review row:")
+            self._log(str(all_manual_review_rows[0]))
             print("First manual review row:")
             print(all_manual_review_rows[0])
 
-        self.starrocks_service.insert_institution(insert_query, all_results, matched_time_query, matching_time_ms, file_id)
+        self.starrocks_service.insert_institution(
+            insert_query, all_results, matched_time_query, matching_time_ms, file_id
+        )
+
         if all_manual_review_rows:
             self.starrocks_service.insert_manual_review(all_manual_review_rows)
-        print('Triggering AI...')
+
+        self._log("Triggering AI...")
+        print("Triggering AI...")
         self.trigger_ai_reasoning(file_id)
         self.starrocks_service.set_sync_complete(file_id, final_sync_status)
+
+        self._log("Batch insert completed")
         print("Batch insert completed")
 
         if final_sync_status == 3:
@@ -284,27 +321,21 @@ class MatchingServiceV2:
         response_data = {
             "message": f"Grade {grade} matching completed",
             "file_id": file_id,
-            "processed_rows": len(results),
+            "processed_rows": len(all_results),
             "matched_rows": sum(
-                1
-                for r in results
-                if r["match_result"] == 1
+                1 for r in all_results if r["match_result"] == 1
             ),
             "manual_review_rows": sum(
-                1
-                for r in results
-                if r["match_result"] == 2
+                1 for r in all_results if r["match_result"] == 2
             ),
             "unmatched_rows": sum(
-                1
-                for r in results
-                if r["match_result"] == 3
+                1 for r in all_results if r["match_result"] == 3
             )
         }
 
-        latency_ms = int((time.perf_counter() - start_time) * 1000) 
+        latency_ms = int((time.perf_counter() - start_time) * 1000)
         self.audit_service.log_audit_event(
-            actor_org_id="system_auto", 
+            actor_org_id="system_auto",
             action=f"MATCHING_GRADE_{grade}",
             resource_type="FILE",
             resource_id=file_id,
