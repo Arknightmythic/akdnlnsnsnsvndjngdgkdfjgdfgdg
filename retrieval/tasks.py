@@ -26,9 +26,6 @@ def _make_engine():
         pool_pre_ping=True,
         pool_recycle=1800,
         pool_size=2,
-        pool_pre_ping=True,
-        pool_recycle=1800,
-        pool_size=2,
     )
 
 
