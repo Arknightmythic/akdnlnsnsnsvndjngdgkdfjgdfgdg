@@ -58,6 +58,41 @@ class MatchFileRoutes:
                 "matching_task_status": file_data.get("matching_task_status", "IDLE")
             }
 
+        # --- ENDPOINT BARU: Menarik Riwayat Log (History) ---
+        @self.router.get("/logs/{file_id}")
+        async def get_match_logs(request: Request, file_id: str):
+            # 1. Ambil status terkini dari database
+            starrocks_service = StarrocksService(request.app.state.starrocks_engine)
+            file_data = starrocks_service.get_uploaded_file(file_id)
+
+            if not file_data:
+                return JSONResponse(status_code=404, content={"message": "File not found"})
+
+            current_status = file_data.get("matching_task_status", "IDLE")
+
+            # 2. Ambil riwayat log dari Redis
+            redis = request.app.state.redis
+            redis_key = f"matching_log:{file_id}"
+            
+            # Tarik semua data dari index 0 sampai terakhir (-1)
+            entries = await redis.lrange(redis_key, 0, -1)
+
+            logs = []
+            if entries:
+                for raw in entries:
+                    try:
+                        payload = json.loads(raw)
+                        # Sembunyikan sentinel __DONE__ agar tidak tampil di frontend
+                        if payload.get("message") != "__DONE__":
+                            logs.append(payload)
+                    except Exception:
+                        logs.append({"message": str(raw), "level": "INFO"})
+
+            return {
+                "matching_task_status": current_status,
+                "logs": logs
+            }
+
         @self.router.get("/stream/{file_id}")
         async def stream_matching_log(request: Request, file_id: str):
             redis = request.app.state.redis
