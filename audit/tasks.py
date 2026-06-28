@@ -4,6 +4,7 @@ import logging
 from celery import Task
 from sqlalchemy import create_engine, text
 
+from audit.writer import AuditWriter
 from worker import celery_app
 
 logger = logging.getLogger(__name__)
@@ -188,3 +189,28 @@ def _load_before_state_and_policy(engine):
             policy_ids[p["resource_type"]] = p["id"]
 
     return before_state, retention_rules, policy_ids
+
+@celery_app.task(
+    bind=True,
+    name="audit.tasks.log_api_latency_task",
+    acks_late=True,
+    max_retries=1
+)
+def log_api_latency_task(self, action, resource_type, resource_id, ip_address, result, latency_ms):
+    """
+    Task background untuk menyimpan latency API ke tabel access_event
+    agar tidak memblokir response time FastAPI.
+    """
+    engine = _make_engine()
+    
+    # Gunakan AuditWriter untuk memastikan standarisasi penulisan ke DB
+    writer = AuditWriter(engine=engine)
+    writer.log_access_event(
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        ip_address=ip_address,
+        result=result,
+        latency_ms=latency_ms,
+        actor_user_id="system_latency_tracker"
+    )

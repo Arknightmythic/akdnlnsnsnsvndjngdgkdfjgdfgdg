@@ -1,6 +1,20 @@
 from .reasoning_service import ReasoningService
 import concurrent.futures
+import json
+import redis
+import os
+from datetime import datetime
 
+redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+
+def push_reasoning_log(file_id: str, message: str, level: str = "INFO"):
+    if not file_id: return
+    payload = {
+        "message": message,
+        "level": level,
+        "ts": datetime.now().isoformat()
+    }
+    redis_client.rpush(f"matching_log:{file_id}", json.dumps(payload))
 class ReasoningHandler:
     def __init__(self, engine):
         """
@@ -31,7 +45,7 @@ class ReasoningHandler:
         """Legacy sync run - dialihkan ke enqueue agar aman."""
         return self.enqueue_reasoning(file_id)
     
-    def run_reasoning_batch(self, batch_ids: list, batch_num: int = 1, total_batches: int = 1) -> dict:
+    def run_reasoning_batch(self, file_id: str, batch_ids: list, batch_num: int = 1, total_batches: int = 1) -> dict:
         """
         Menjalankan AI reasoning secara paralel (Multi-threading) di memori,
         beserta logging status batch ke terminal.
@@ -63,7 +77,7 @@ class ReasoningHandler:
                     
         # Setelah semua thread di dalam batch selesai, lakukan Bulk Commit
         if results_to_update:
-            self.reasoning_service.bulk_update_mm_results(results_to_update)
+            self.reasoning_service.bulk_update_mm_results(results_to_update, file_id=file_id)
             
         print(f"✅ [Batch {batch_num}/{total_batches}] Selesai mengeksekusi {len(results_to_update)} baris.")
         

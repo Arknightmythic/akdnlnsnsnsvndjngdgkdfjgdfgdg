@@ -141,7 +141,7 @@ def run_matching_task(self, file_id: str):
             level="SUCCESS",
         )
         
-        push_log(redis, file_id, "__DONE__", level="SUCCESS")
+        push_log(redis, file_id, "__MATCHING_DONE__", level="SUCCESS")
 
         audit.log_audit_event(
             actor_org_id="system_auto",

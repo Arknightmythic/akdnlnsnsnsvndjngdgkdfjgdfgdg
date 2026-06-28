@@ -69,7 +69,7 @@ def trigger_rows_for_file(self, file_id: str):
             queued_batches += 1
             
             # Lempar nomor batch saat ini dan total batch ke worker
-            process_batch_reasoning.delay(batch_ids, queued_batches, total_batches)
+            process_batch_reasoning.delay(file_id, batch_ids, queued_batches, total_batches)
             
         return {
             "status": "success", 
@@ -91,11 +91,11 @@ def trigger_rows_for_file(self, file_id: str):
     acks_late=True,
     ignore_result=True
 )
-def process_batch_reasoning(self, batch_ids: list, batch_num: int = 1, total_batches: int = 1):
+def process_batch_reasoning(self, file_id: str, batch_ids: list, batch_num: int = 1, total_batches: int = 1):
     """
     Menerima parameter tambahan batch_num dan total_batches untuk logging.
     """
     try:
-        return self.handler.run_reasoning_batch(batch_ids, batch_num, total_batches)
+        return self.handler.run_reasoning_batch(file_id, batch_ids, batch_num, total_batches)
     except Exception as exc:
         raise self.retry(exc=exc)
