@@ -21,6 +21,8 @@ from dotenv import load_dotenv
 from reasoning.routes import ReasoningRoutes
 from redis.asyncio import Redis
 
+from util.latency_tracker import LatencyTrackingMiddleware
+
 load_dotenv()
 
 class SynchronoAPI:
@@ -34,6 +36,8 @@ class SynchronoAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+        # self.app.add_middleware(LatencyTrackingMiddleware)
 
         self.include_routers()
 
