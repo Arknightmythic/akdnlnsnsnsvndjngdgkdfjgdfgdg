@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from minio import Minio
 from urllib.parse import urlparse
 from redis import Redis as SyncRedis
+import time
 
 from worker import celery_app
 from processing.handler import MatchFileHandler
@@ -113,6 +114,7 @@ def run_matching_task(self, file_id: str):
     retrieval = RetrieveRepository(self.engine)
     starrocks = StarrocksService(self.engine)
     redis     = self.redis
+    start_time = time.time()
 
     
     before_state = retrieval.get_matching_status_before(file_id)
@@ -123,13 +125,10 @@ def run_matching_task(self, file_id: str):
 
     try:
         logger.info(f"Mulai matching untuk file_id: {file_id}")
-
-        
         self.handler.matching_service_new.redis  = redis
         self.handler.matching_service_new.file_id_ctx = file_id
-
         result = self.handler.process_file(file_id)
-
+        latency_ms = int((time.time() - start_time) * 1000)
         starrocks.set_matching_task_info(file_id, self.request.id, "SUCCESS")
 
         
@@ -149,6 +148,7 @@ def run_matching_task(self, file_id: str):
             resource_type="FILE",
             resource_id=file_id,
             result="SUCCESS",
+            latency_ms=latency_ms,
             before_state=json.dumps(before_state),
             after_state=json.dumps(result),
         )
@@ -159,10 +159,9 @@ def run_matching_task(self, file_id: str):
         logger.error(f"Gagal matching file_id {file_id}: {exc}")
 
         starrocks.set_matching_task_info(file_id, None, "FAILED")
-
-        
         push_log(redis, file_id, f"Task FAILED: {exc}", level="ERROR")
         push_log(redis, file_id, "__DONE__", level="ERROR")
+        latency_ms = int((time.time() - start_time) * 1000)
 
         try:
             audit.log_audit_event(
@@ -171,6 +170,7 @@ def run_matching_task(self, file_id: str):
                 resource_type="FILE",
                 resource_id=file_id,
                 result="FAILED",
+                latency_ms=latency_ms,
                 before_state=json.dumps(before_state),
                 after_state=json.dumps({"error": str(exc)}),
             )

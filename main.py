@@ -37,7 +37,7 @@ class SynchronoAPI:
             allow_headers=["*"],
         )
 
-        # self.app.add_middleware(LatencyTrackingMiddleware)
+        self.app.add_middleware(LatencyTrackingMiddleware)
 
         self.include_routers()
 
