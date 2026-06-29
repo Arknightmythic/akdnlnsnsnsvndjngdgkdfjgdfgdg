@@ -205,7 +205,7 @@ def log_api_latency_task(self, action, resource_type, resource_id, ip_address, r
     
     # Gunakan AuditWriter untuk memastikan standarisasi penulisan ke DB
     writer = AuditWriter(engine=engine)
-    writer.log_access_event(
+    writer.log_access_sync(
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,
