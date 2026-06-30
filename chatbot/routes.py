@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import json
 import json
 import os
+import time
 
 from chatbot.handler import ChatbotHandler
 from chatbot.database import mysql_db as db
@@ -40,6 +41,7 @@ class ChatbotRoutes:
         resource_type: str,
         resource_id: str,
         actor_user_id: str = "anonymous_poc",
+        latency_ms: int = 0
     ):
         writer = AuditWriter(
             engine=request.app.state.starrocks_engine,
@@ -52,7 +54,7 @@ class ChatbotRoutes:
             resource_id=resource_id,
             ip_address=self._client_ip(request),
             result="SUCCESS",
-            latency_ms=0,
+            latency_ms=latency_ms,
             actor_user_id=actor_user_id,
         )
 
@@ -68,6 +70,12 @@ class ChatbotRoutes:
                 if not request.query.strip():
                     raise HTTPException(status_code=400, detail="Empty prompt!")
 
+                start_time = time.time()
+                agent = ChatbotHandler(request.model_name, request.base_url)
+                
+                # Hitung latency setup (sebelum stream dimulai)
+                latency_ms = int((time.time() - start_time) * 1000)
+
                 await self._log_access(
                     request=req,
                     background_tasks=background_tasks,
@@ -75,9 +83,8 @@ class ChatbotRoutes:
                     resource_type="CHAT_CONVERSATION",
                     resource_id=request.conversation_id,
                     actor_user_id=request.user_id,
+                    latency_ms=latency_ms,
                 )
-
-                agent = ChatbotHandler(request.model_name, request.base_url)
 
                 return StreamingResponse(
                     agent.stream(
@@ -99,6 +106,9 @@ class ChatbotRoutes:
             background_tasks: BackgroundTasks,
         ):
             try:
+                start_time = time.time()
+                conversations = db.get_conversations(user_id)
+                latency_ms = int((time.time() - start_time) * 1000)
                 await self._log_access(
                     request=req,
                     background_tasks=background_tasks,
@@ -106,8 +116,8 @@ class ChatbotRoutes:
                     resource_type="CHAT_LIST",
                     resource_id=user_id,
                     actor_user_id=user_id,
+                    latency_ms=latency_ms,
                 )
-                conversations = db.get_conversations(user_id)
                 return conversations
             except Exception as e:
                 print(f"Error: {e}")
@@ -120,14 +130,18 @@ class ChatbotRoutes:
             background_tasks: BackgroundTasks,
         ):
             try:
+                start_time = time.time()
+                messages = db.get_messages(conversation_id)
+                latency_ms = int((time.time() - start_time) * 1000)
+
                 await self._log_access(
                     request=req,
                     background_tasks=background_tasks,
                     action="VIEW_CHAT_MESSAGES",
                     resource_type="CHAT_CONVERSATION",
                     resource_id=conversation_id,
+                    latency_ms=latency_ms,
                 )
-                messages = db.get_messages(conversation_id)
                 if not messages:
                     raise HTTPException(status_code=404, detail="Messages not found")
                 return messages
