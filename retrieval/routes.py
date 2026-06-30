@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Request, Query, BackgroundTasks
-from fastapi import APIRouter, Request, Query, BackgroundTasks
 from .handler import RetrieveDataHandler
 from audit.writer import AuditWriter
 from util.parquet_loader import ParquetLoader

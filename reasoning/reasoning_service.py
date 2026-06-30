@@ -1,7 +1,6 @@
 import os
 import re
 import json
-import json
 import time
 from datetime import date, datetime
 from dotenv import load_dotenv
@@ -425,6 +424,7 @@ class ReasoningService:
             "llm_time_seconds": round(llm_duration, 2),
             "total_time_seconds": round(row_duration, 2),
         }
+
 
     def bulk_update_mm_results(self, results: list):
         success_data = []

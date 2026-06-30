@@ -170,6 +170,7 @@ class DashboardService:
             LIMIT :limit OFFSET :offset
         """)
 
+
         with self.engine.connect() as conn:
             total_rows = conn.execute(count_query, params).scalar()
             records = conn.execute(data_query, params).mappings().all()
@@ -184,6 +185,14 @@ class DashboardService:
             "has_prev": page > 1,
         }
 
+    def get_access_logs_pagination(
+        self,
+        page: int,
+        period: str,
+        start_date: str = None,
+        end_date: str = None,
+        limit: int = 10,
+    ):
     def get_access_logs_pagination(
         self,
         page: int,
@@ -209,6 +218,7 @@ class DashboardService:
             ORDER BY event_time DESC
             LIMIT :limit OFFSET :offset
         """)
+
 
         with self.engine.connect() as conn:
             total_rows = conn.execute(count_query, params).scalar()

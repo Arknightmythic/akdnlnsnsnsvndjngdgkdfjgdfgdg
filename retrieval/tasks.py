@@ -5,18 +5,13 @@ import asyncio
 import pandas as pd
 from celery import Task
 from sqlalchemy import create_engine, text
-from sqlalchemy import create_engine, text
 from minio import Minio
-from redis import Redis as SyncRedis
-from urllib.parse import urlparse
-
 from redis import Redis as SyncRedis
 from urllib.parse import urlparse
 
 from worker import celery_app
 from retrieval.repository import RetrieveRepository
 from util.parquet_loader import ParquetLoader
-
 
 
 def _make_engine():
@@ -65,6 +60,7 @@ class ExportTask(Task):
             self._engine = _make_engine()
         return self._engine
 
+
     @property
     def minio_client(self):
         if self._minio_client is None:
@@ -72,6 +68,7 @@ class ExportTask(Task):
                 os.getenv("MINIO_ENDPOINT"),
                 access_key=os.getenv("MINIO_ACCESS_KEY"),
                 secret_key=os.getenv("MINIO_SECRET_KEY"),
+                secure=False,
                 secure=False,
             )
         return self._minio_client
@@ -91,6 +88,7 @@ def generate_export_csv(self, file_id: str):
         meta = repo.get_minio_path(file_id)
         if not meta:
             raise Exception("File meta not found")
+
 
         bucket_name = os.getenv("RAW_BUCKET_NAME")
 

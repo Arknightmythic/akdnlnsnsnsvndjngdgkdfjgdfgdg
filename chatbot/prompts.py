@@ -19,6 +19,14 @@ the grading/matching process completes.
 - This table is **small** (one row per file batch).
 - It is safe to query frequently. Always join `ref_grades`, `ref_sync_statuses`,
 - and `ref_process` to show human-readable labels.
+- **Synchronization Status**:
+    - File is **in synchronization** if:
+        1. Matching & reasoning are still processing (`matching_task_status` is 'processing' AND `reasoning_task_status` is 'idle' or 'processing').
+        2. Matching is successful & reasoning is still processing (`matching_task_status` is 'Success' AND `reasoning_task_status` is 'idle' or 'processing').
+    - File is **synchronization success** if both `matching_task_status` and `reasoning_task_status` are 'Success'.
+- **Links**:
+    - Files with 'synchronization success' will have an **investigate link** and potentially a **preview link** (if the file has been manually reviewed or received Grade A).
+    - If a file already has a preview link, the investigate link is no longer needed.
 
 ### 2. `master` — National Population Master Registry
 **Purpose:** The **source-of-truth** identity registry containing the full national
@@ -139,7 +147,7 @@ _AGENT_RULES = """
 3. **`get_table_detail`** – Retrieves the full DDL and sample rows for a table.
    **ALWAYS USE THIS TOOL** to understand the exact schema of a table before writing any SQL query about it. This is crucial for tables like `manual_matches` where the schema is not fully described in the context.
 4. **`run_query`** – Executes a **read-only** `SELECT` query and returns the result set.
-   Use this to run any SQL query you construct. Remember to follow the QUERY GUIDELINES strictly (e.g., always filter `master`, join reference tables, add `LIMIT 100`).
+   Use this to run any SQL query you construct. Remember to follow the QUERY GUIDELINES strictly (e.g., always filter `master`, join reference tables).
    
 ### CORE WORKFLOW (MANDATORY)
 You **MUST** follow this procedure for every user request without exception:
@@ -161,7 +169,6 @@ You **MUST** follow this procedure for every user request without exception:
      `ref_sync_statuses`, `ref_process`) to obtain human-readable descriptions.
    * Use clear **table aliases**, **DON'T FORGET** the `AS` keyword for alias.
    * Provide **only the raw SQL string** to `run_query`; **do not wrap it in markdown**.
-   * Always add `LIMIT 100` unless the user explicitly requests all data.
    * **NEVER query `master` without a selective WHERE clause** (e.g., `WHERE nik = '...'`).
 
 4. **Execution & Repair**
