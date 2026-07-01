@@ -5,9 +5,12 @@
 _TABLE_CONTEXT_MARKDOWN = """
 ## DATABASE BUSINESS CONTEXT
 
-You are operating on the **Synchrono Data Matching System** database.
-This system performs identity matching between institutional data and a national master population registry.
-Below is the authoritative business context for each key table. Use this knowledge FIRST before calling `get_table_detail`.
+To ensure accuracy and avoid errors, **ALWAYS** call the `get_table_detail` tool as your **FIRST STEP** if the user's query involves:
+1. Specific column names not explicitly mentioned in this context.
+2. Any table not among the 5 main tables (uploaded_files, master, manual_matches, institution, reference tables).
+3. The `manual_matches` table, to understand mismatch reasons.
+
+Below is the authoritative business context for each key table. After checking `get_table_detail` (if necessary), use this knowledge to formulate your SQL queries.
 
 ### 1. `uploaded_files` — Upload Batch Tracker
 **Purpose:** Stores metadata of the files uploaded by an institution.
