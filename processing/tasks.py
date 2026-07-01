@@ -118,19 +118,6 @@ def run_matching_task(self, file_id: str):
 
     
     before_state = retrieval.get_matching_status_before(file_id)
-    try:
-        with self.engine.begin() as conn:
-            conn.execute(
-                text("""
-                    UPDATE uploaded_files 
-                    SET matching_task_status = 'PROCESSING',
-                        investigate_url = CONCAT('/batch-synchronization/investigate?file_id=', :file_id)
-                    WHERE file_id = :file_id
-                """),
-                {"file_id": file_id}
-            )
-    except Exception as e:
-        logger.error(f"Gagal update status awal matching untuk {file_id}: {e}")
 
     push_log(redis, file_id, "Mulai matching untuk file_id: " + file_id)
     push_log(redis, file_id, "Processing data...")

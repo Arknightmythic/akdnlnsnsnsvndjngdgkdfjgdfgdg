@@ -61,10 +61,11 @@ def trigger_rows_for_file(self, file_id: str):
             conn.execute(
                 text("""
                     UPDATE uploaded_files 
-                    SET reasoning_task_status = 'PROCESSING'
+                    SET reasoning_task_status = 'PROCESSING',
+                        reasoning_task_id = :task_id
                     WHERE file_id = :file_id
                 """),
-                {"file_id": file_id}
+                {"file_id": file_id, "task_id": self.request.id}
             )
     except Exception as e:
         logger.error(f"Gagal update reasoning_task_status (PROCESSING): {e}")
@@ -81,19 +82,7 @@ def trigger_rows_for_file(self, file_id: str):
 
         if total_rows == 0:
             # --- UPDATE 4: Jika 0 baris (tidak ada yang manual_review), jadikan SUCCESS ---
-            try:
-                with self.engine.begin() as conn:
-                    conn.execute(
-                        text("""
-                            UPDATE uploaded_files 
-                            SET reasoning_task_status = 'SUCCESS',
-                                preview_url = CONCAT('/batch-synchronization/preview?file_id=', :file_id)
-                            WHERE file_id = :file_id
-                        """),
-                        {"file_id": file_id}
-                    )
-            except Exception:
-                pass
+            _set_reasoning_success_and_urls(self.engine, file_id)
                 
             return {"status": "success", "file_id": file_id, "queued_batches": 0, "total_rows": 0}
 
@@ -148,19 +137,7 @@ def process_batch_reasoning(
         latency_ms = int((time.time() - start_time) * 1000)
 
         if batch_num == total_batches:
-            try:
-                with self.engine.begin() as conn:
-                    conn.execute(
-                        text("""
-                            UPDATE uploaded_files 
-                            SET reasoning_task_status = 'SUCCESS',
-                                preview_url = CONCAT('/batch-synchronization/preview?file_id=', :file_id)
-                            WHERE file_id = :file_id
-                        """),
-                        {"file_id": file_id}
-                    )
-            except Exception as db_exc:
-                logger.error(f"Gagal set SUCCESS reasoning batch terakhir {file_id}: {db_exc}")
+            _set_reasoning_success_and_urls(self.engine, file_id)
 
         audit.log_audit_event(
             actor_org_id="system_auto",
@@ -213,3 +190,64 @@ def process_batch_reasoning(
             )
 
         raise self.retry(exc=exc)
+    
+def _set_reasoning_success_and_urls(engine, file_id: str):
+    from sqlalchemy import text
+    import urllib.parse
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        with engine.begin() as conn:
+            # Ambil sync_status, grade (huruf), dan nama institusi
+            row = conn.execute(
+                text("""
+                    SELECT uf.sync_status, rg.grade_code, uf.institution_name 
+                    FROM uploaded_files uf
+                    LEFT JOIN ref_grades rg ON uf.grade = rg.grade_id
+                    WHERE uf.file_id = :file_id
+                """),
+                {"file_id": file_id}
+            ).fetchone()
+            
+            if row:
+                sync_status_val, grade_code, institution_name = row
+                
+                # Hindari spasi putus di URL dengan urllib.parse
+                safe_grade = urllib.parse.quote(str(grade_code or "Unknown"))
+                safe_name = urllib.parse.quote(str(institution_name or "Institution"))
+                
+                # Bangun URL lengkap dengan parameter tambahan
+                preview_url = f"/batch-synchronization/preview?file_id={file_id}&grade={safe_grade}&name={safe_name}"
+                investigate_url = f"/batch-synchronization/investigate?file_id={file_id}&grade={safe_grade}&name={safe_name}"
+
+                if sync_status_val == 3:
+                    conn.execute(
+                        text("""
+                            UPDATE uploaded_files 
+                            SET reasoning_task_status = 'SUCCESS',
+                                preview_url = :p_url,
+                                investigate_url = NULL
+                            WHERE file_id = :file_id
+                        """),
+                        {"file_id": file_id, "p_url": preview_url}
+                    )
+                elif sync_status_val == 2:
+                    conn.execute(
+                        text("""
+                            UPDATE uploaded_files 
+                            SET reasoning_task_status = 'SUCCESS',
+                                investigate_url = :i_url,
+                                preview_url = NULL
+                            WHERE file_id = :file_id
+                        """),
+                        {"file_id": file_id, "i_url": investigate_url}
+                    )
+                else:
+                    conn.execute(
+                        text("UPDATE uploaded_files SET reasoning_task_status = 'SUCCESS' WHERE file_id = :file_id"),
+                        {"file_id": file_id}
+                    )
+    except Exception as e:
+        logger.error(f"Gagal set URL dan SUCCESS status untuk {file_id}: {e}")

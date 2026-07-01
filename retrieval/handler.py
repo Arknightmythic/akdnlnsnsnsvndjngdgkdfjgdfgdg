@@ -214,6 +214,40 @@ class RetrieveDataHandler:
         updated = self.repository.mark_as_completed(file_id=file_id)
         after   = {"sync_status": 3, "is_sync": 1}
 
+        try:
+            import urllib.parse
+            with self.repository.engine.begin() as conn:
+                # Ambil data grade_code dan institution_name untuk URL Preview
+                row = conn.execute(
+                    text("""
+                        SELECT rg.grade_code, uf.institution_name 
+                        FROM uploaded_files uf
+                        LEFT JOIN ref_grades rg ON uf.grade = rg.grade_id
+                        WHERE uf.file_id = :file_id
+                    """),
+                    {"file_id": file_id}
+                ).fetchone()
+                
+                grade_code = row[0] if row and row[0] else "Unknown"
+                inst_name = row[1] if row and row[1] else "Institution"
+                
+                safe_grade = urllib.parse.quote(str(grade_code))
+                safe_name = urllib.parse.quote(str(inst_name))
+                
+                # URL lengkap dengan parameter
+                preview_url = f"/batch-synchronization/preview?file_id={file_id}&grade={safe_grade}&name={safe_name}"
+
+                conn.execute(
+                    text("""
+                        UPDATE uploaded_files 
+                        SET preview_url = :p_url
+                        WHERE file_id = :file_id
+                    """),
+                    {"file_id": file_id, "p_url": preview_url}
+                )
+        except Exception as e:
+            print(f"Gagal generate preview_url saat mark_as_complete: {e}")
+            
         # Catat audit dengan before_state dan after_state
         self._audit.log_audit_event(
             actor_org_id=file_id,
