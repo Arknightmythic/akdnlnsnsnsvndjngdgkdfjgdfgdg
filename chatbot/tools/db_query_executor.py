@@ -52,9 +52,9 @@ class RunQueryBuilder:
             if result:
                 return {"query_result": str(result)}
             else:
-                return {"query_result": "No results returned."}
+                return {"query_result": "No results returned. May be due to an empty table or incorrect query. Try to use the 'get_table_names' or 'get_table_detail' tools to explore the database schema."}
         except Exception as e:
-            return {"error_message": str(e), "query_result": "No results returned due to error."}
+            return {"error_message": str(e), "query_result": "No results returned due to error. Please check your query and try again. You can also use the 'get_table_names' or 'get_table_detail' tools to explore the database schema."}
         
     def _is_dangerous(self, state: ExecutionState):
         if state.get("is_dangerous"):
