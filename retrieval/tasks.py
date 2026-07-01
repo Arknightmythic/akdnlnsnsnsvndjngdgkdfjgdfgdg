@@ -69,7 +69,6 @@ class ExportTask(Task):
                 access_key=os.getenv("MINIO_ACCESS_KEY"),
                 secret_key=os.getenv("MINIO_SECRET_KEY"),
                 secure=False,
-                secure=False,
             )
         return self._minio_client
 

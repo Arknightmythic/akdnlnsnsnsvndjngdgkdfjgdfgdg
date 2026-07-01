@@ -193,14 +193,6 @@ class DashboardService:
         end_date: str = None,
         limit: int = 10,
     ):
-    def get_access_logs_pagination(
-        self,
-        page: int,
-        period: str,
-        start_date: str = None,
-        end_date: str = None,
-        limit: int = 10,
-    ):
         condition, params = self._build_date_condition(period, start_date, end_date)
 
         # FIX #4: sama seperti get_audit_logs_pagination
