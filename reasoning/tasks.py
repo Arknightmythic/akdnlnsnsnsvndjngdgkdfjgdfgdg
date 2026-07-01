@@ -4,7 +4,7 @@ import time
 import logging
 import math
 from celery import Task
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
 from reasoning.celery_app import celery_app
@@ -57,6 +57,19 @@ def trigger_rows_for_file(self, file_id: str):
     """
     from sqlalchemy import text
     try:
+        with self.engine.begin() as conn:
+            conn.execute(
+                text("""
+                    UPDATE uploaded_files 
+                    SET reasoning_task_status = 'PROCESSING'
+                    WHERE file_id = :file_id
+                """),
+                {"file_id": file_id}
+            )
+    except Exception as e:
+        logger.error(f"Gagal update reasoning_task_status (PROCESSING): {e}")
+
+    try:
         with self.engine.connect() as conn:
             rows = conn.execute(
                 text("SELECT id FROM manual_matches WHERE file_id = :f AND reasoning_status = 'PENDING'"),
@@ -67,6 +80,21 @@ def trigger_rows_for_file(self, file_id: str):
         total_rows = len(all_ids)
 
         if total_rows == 0:
+            # --- UPDATE 4: Jika 0 baris (tidak ada yang manual_review), jadikan SUCCESS ---
+            try:
+                with self.engine.begin() as conn:
+                    conn.execute(
+                        text("""
+                            UPDATE uploaded_files 
+                            SET reasoning_task_status = 'SUCCESS',
+                                preview_url = CONCAT('/batch-synchronization/preview?file_id=', :file_id)
+                            WHERE file_id = :file_id
+                        """),
+                        {"file_id": file_id}
+                    )
+            except Exception:
+                pass
+                
             return {"status": "success", "file_id": file_id, "queued_batches": 0, "total_rows": 0}
 
         batch_size    = math.ceil(total_rows / 20) if total_rows > 1000 else 100
@@ -119,6 +147,21 @@ def process_batch_reasoning(
         result     = self.handler.run_reasoning_batch(file_id, batch_ids, batch_num, total_batches)
         latency_ms = int((time.time() - start_time) * 1000)
 
+        if batch_num == total_batches:
+            try:
+                with self.engine.begin() as conn:
+                    conn.execute(
+                        text("""
+                            UPDATE uploaded_files 
+                            SET reasoning_task_status = 'SUCCESS',
+                                preview_url = CONCAT('/batch-synchronization/preview?file_id=', :file_id)
+                            WHERE file_id = :file_id
+                        """),
+                        {"file_id": file_id}
+                    )
+            except Exception as db_exc:
+                logger.error(f"Gagal set SUCCESS reasoning batch terakhir {file_id}: {db_exc}")
+
         audit.log_audit_event(
             actor_org_id="system_auto",
             action="REASONING_BATCH",
@@ -136,9 +179,18 @@ def process_batch_reasoning(
         return result
 
     except Exception as exc:
-        # Tetap catat latency meski gagal — berguna untuk debug batch yang timeout
         latency_ms = int((time.time() - start_time) * 1000)
 
+        # --- UPDATE 6: Jika batch jebol/gagal, tandai sebagai FAILED ---
+        try:
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text("UPDATE uploaded_files SET reasoning_task_status = 'FAILED' WHERE file_id = :file_id"),
+                    {"file_id": file_id}
+                )
+        except Exception:
+            pass
+        
         try:
             audit.log_audit_event(
                 actor_org_id="system_auto",

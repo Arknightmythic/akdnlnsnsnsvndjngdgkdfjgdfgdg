@@ -37,8 +37,26 @@ class ReasoningHandler:
 
     def enqueue_reasoning(self, file_id: str) -> dict:
         """Kirim task orchestrator ke Celery queue."""
+        from sqlalchemy import text
         from reasoning.tasks import trigger_rows_for_file
+        
         task = trigger_rows_for_file.delay(file_id)
+        
+        # --- UPDATE 2: Tandai sebagai antrean agar terpantau ---
+        try:
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text("""
+                        UPDATE uploaded_files 
+                        SET reasoning_task_status = 'QUEUED',
+                            reasoning_task_id = :task_id
+                        WHERE file_id = :file_id
+                    """),
+                    {"file_id": file_id, "task_id": task.id}
+                )
+        except Exception as e:
+            print(f"[Reasoning] Gagal set QUEUED status: {e}")
+            
         return {"status": "queued", "task_id": task.id, "file_id": file_id}
 
     def run_reasoning(self, file_id: str) -> dict:
