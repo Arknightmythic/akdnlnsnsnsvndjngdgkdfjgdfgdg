@@ -58,8 +58,8 @@ class GraderService:
             results["nik_len16"] = pcts.get("nik_len16", 0.0)
             results["nik_not_len16_count"] = pcts.get("nik_not_len16_count", 0)
 
-            # Grading logic (checked in order: A, B, C, D, else E)
-            grade = Grade.E.value
+            # Grading logic (checked in order: A, B, C, D, E, else F)
+            grade = Grade.F.value
 
             nik_exists = results["nik_exists"]
             b_to_f = ["nama", "tempat_lahir", "tanggal_lahir", "jenis_kelamin", "nama_ibu"]
@@ -85,7 +85,7 @@ class GraderService:
                     grade = Grade.B.value
 
             # Grade C & D: nik must NOT exist, but nama_lengkap..nama_ibu must all exist
-            if grade == Grade.E.value and not nik_exists and b_to_f_exist:
+            if grade == Grade.F.value and not nik_exists and b_to_f_exist:
                 all_b_to_f_100 = all(
                     results[f"{c}_null_count"] == 0 for c in b_to_f
                 )
@@ -99,6 +99,19 @@ class GraderService:
                     and results["nama_ibu_nonnull"] >= 0.6
                 ):
                     grade = Grade.D.value
+
+            if grade == Grade.F.value:
+                hn = results["nama_exists"]
+                htl = results["tanggal_lahir_exists"]
+                htmp = results["tempat_lahir_exists"]
+                
+                e1 = hn and htl and results["jenis_kelamin_exists"]
+                e2 = hn and htmp and htl
+                e3 = hn and htmp and results["nama_ibu_exists"]
+                e4 = hn and htl and any(c in lf_columns_set for c in ["provinsi", "kabupaten", "kecamatan", "kelurahan"])
+                
+                if e1 or e2 or e3 or e4:
+                    grade = Grade.E.value
 
             return grade
 
