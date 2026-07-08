@@ -10,3 +10,4 @@ class Grade(Enum):
     C = 3
     D = 4
     E = 5
+    F = 6
