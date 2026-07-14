@@ -31,9 +31,16 @@ class MatchFileHandler:
 
         grade = uploaded_file["grade"]
 
-        if grade < 1 or grade > 5:
+        if grade == 6:
+            if not uploaded_file.get("is_custom_ready"):
+                raise Exception(
+                    "Custom field mapping belum dikonfirmasi user "
+                    "(is_custom_ready=0) — matching tidak bisa dijalankan."
+                )
+            result = self.matching_service_new.process_custom_matching_job(file_id)
+        elif 1 <= grade <= 5:
+            result = self.matching_service_new.process_matching_job(file_id, grade)
+        else:
             raise Exception(f"Unsupported grade: {grade}")
-        
-        result = self.matching_service_new.process_matching_job(file_id, grade)
 
         return result

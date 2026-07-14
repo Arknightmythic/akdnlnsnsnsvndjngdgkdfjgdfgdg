@@ -35,4 +35,4 @@ celery_app.conf.beat_schedule = {
 }
 
 
-celery_app.autodiscover_tasks(["audit", "processing", "retrieval"])
+celery_app.autodiscover_tasks(["audit", "processing", "retrieval", "custom_mapping"])

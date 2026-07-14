@@ -1,9 +1,24 @@
 from rapidfuzz.distance import JaroWinkler
+from .custom_query_builder import resolve_clean_base
 
 class ScoringService:
 
     def __init__(self):
         print("Scoring Service Initiated!")
+
+    def compute_dynamic_similarity_score(self, active_pairs, row):
+        total_score = 0.0
+        for pair in active_pairs:
+            master_col = pair["master_column"]
+            if master_col == "nik":
+                continue
+
+            clean_base = resolve_clean_base(master_col)
+            incoming_val = row.get(f"{clean_base}_clean")
+            master_val = row.get(f"{clean_base}_master_clean")
+            total_score += self.safe_jaro(incoming_val, master_val) * pair["weight"]
+
+        return total_score * 100
 
     def safe_jaro(self, left, right):
         if left is None or right is None:

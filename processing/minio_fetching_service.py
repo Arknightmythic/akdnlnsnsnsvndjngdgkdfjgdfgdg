@@ -9,7 +9,7 @@ class ObjectStorageService:
         self.bucket_name = bucket_name
         print("Object Storage Service Initiated!")
     
-    def load_parquet_from_minio(self, object_name):
+    def load_parquet_from_minio(self, object_name, column_rename_map: dict | None = None):
         response = self.minio_client.get_object(
             self.bucket_name,
             object_name
@@ -22,6 +22,11 @@ class ObjectStorageService:
             df = pl.read_parquet(tmp.name)
 
         df.columns = [c.strip().lower()for c in df.columns]
+        if column_rename_map:
+            normalized_map = {k.strip().lower(): v for k, v in column_rename_map.items()}
+            df = df.rename({
+                old: new for old, new in normalized_map.items() if old in df.columns
+            })
 
         expressions = []
         if "id" in df.columns:
