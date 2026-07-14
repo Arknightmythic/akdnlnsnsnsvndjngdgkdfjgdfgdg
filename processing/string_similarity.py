@@ -57,7 +57,7 @@ class ScoringService:
                 self.safe_jaro(b_nama, a_nama) * 0.6 +
                 self.safe_jaro(b_tempat_lahir, a_tempat_lahir) * 0.2 +
                 self.safe_jaro(b_tanggal_lahir, a_tanggal_lahir) * 0.2
-            )
+            ) * 100
         elif grade == 4:
             return (
                 self.safe_jaro(b_nama, a_nama) * 0.6 +
@@ -67,15 +67,15 @@ class ScoringService:
             ) * 100
         elif grade == 5:
             area_scores = []
-
+            area_score = 0.0 
             if (b_provinsi and a_provinsi):
                 area_scores.append(self.safe_jaro(b_provinsi, a_provinsi))
             if (b_kabupaten and a_kabupaten):
                 area_scores.append(self.safe_jaro(b_kabupaten, a_kabupaten))
             if (b_kecamatan and a_kecamatan):
-                area_scores.append(self.safe_jaro(b_provinsi, a_provinsi))
+                area_scores.append(self.safe_jaro(b_kecamatan, a_kecamatan))
             if (b_kelurahan and a_kelurahan):
-                area_scores.append(self.safe_jaro(b_provinsi, a_provinsi))
+                area_scores.append(self.safe_jaro(b_kelurahan, a_kelurahan))
 
             if len(area_scores) > 0:
                 area_score = (sum(area_scores) / len(area_scores))
@@ -83,6 +83,6 @@ class ScoringService:
             return (
                 self.safe_jaro(b_nama, a_nama) * 0.5 +
                 area_score * 0.3 +
-                self.safe_jaro(b_nama_ibu, a_nama_ibu) * 0.01 +
+                self.safe_jaro(b_nama_ibu, a_nama_ibu) * 0.1 +
                 self.safe_jaro(b_tanggal_lahir, a_tanggal_lahir) * 0.1
             ) * 100
