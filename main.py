@@ -8,6 +8,7 @@ import os
 import uvicorn
 
 from audit.routes import AuditRoutes
+from custom_mapping.routes import CustomMappingRoutes
 from ingestion.routes import UploadFileRoutes
 from ingestion.starrocks_connection import engine
 
@@ -105,6 +106,9 @@ class SynchronoAPI:
     
         reasoning_routes = ReasoningRoutes()
         self.app.include_router(reasoning_routes.router, prefix="/reasoning")
+
+        custom_mapping_routes = CustomMappingRoutes()
+        self.app.include_router(custom_mapping_routes.router, prefix="/custom-mapping", tags=["Custom Grading"])
 
     def run(self):
         uvicorn.run(self.app,host="0.0.0.0",port=9191)

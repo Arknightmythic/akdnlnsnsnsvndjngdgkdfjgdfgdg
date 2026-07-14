@@ -7,9 +7,11 @@ from sqlalchemy import text
 from .string_similarity import ScoringService
 from .minio_fetching_service import ObjectStorageService
 from .repository import StarrocksService
+from .custom_query_builder import build_incoming_rename_map, build_dynamic_matching_query, resolve_clean_base
 from audit.audit_service import AuditService
 from reasoning.tasks import trigger_rows_for_file
 from retrieval.tasks import generate_export_csv
+from custom_mapping.repository import CustomMappingRepository
 
 
 class MatchingServiceV2:
@@ -17,6 +19,7 @@ class MatchingServiceV2:
         self.scoring_service = ScoringService()
         self.object_storage_service = ObjectStorageService(minio_client, bucket_name)
         self.starrocks_service = StarrocksService(engine)
+        self.custom_mapping_repo = CustomMappingRepository(engine)
         self.grade_rules = grade_rules
         self.audit_service = AuditService(engine)
 
@@ -58,6 +61,48 @@ class MatchingServiceV2:
         print(f"Master rows fetched: {master_df.height}")
 
         return uploaded_file, incoming_df, master_df
+
+    def get_custom_matching_data(self, file_id):
+        """
+        Versi get_matching_data untuk grade 6 (custom grading). Bedanya:
+        1. Kolom incoming DIRENAME dulu ke nama "role" standar (nik, nama,
+           tempat_lahir, dst) berdasarkan pairing yang dikonfigurasi user,
+           SEBELUM masuk ke load_parquet_from_minio — supaya cleaning logic
+           di ObjectStorageService yang sudah ada bisa dipakai apa adanya.
+        2. Pairing (active_pairs) ikut dikembalikan karena dibutuhkan lagi
+           di process_custom_partition (buat scoring & query builder).
+        """
+        uploaded_file = self.starrocks_service.get_uploaded_file(file_id)
+
+        if not uploaded_file:
+            raise Exception("File ID not found")
+
+        if uploaded_file["grade"] != 6:
+            raise Exception("This endpoint only processes Grade 6 (custom) files")
+
+        active_pairs = [
+            dict(p) for p in self.custom_mapping_repo.get_active_mapping(file_id)
+        ]
+        if not active_pairs:
+            raise Exception(
+                f"Tidak ada field mapping aktif untuk file_id {file_id} — "
+                "pastikan is_custom_ready sudah 1 dan pairing sudah disave."
+            )
+
+        rename_map = build_incoming_rename_map(active_pairs)
+
+        incoming_df = self.object_storage_service.load_parquet_from_minio(
+            uploaded_file["minio_path"],
+            column_rename_map=rename_map,
+        )
+        self._log(f"Incoming rows: {incoming_df.height:,}")
+        print(f"Incoming rows: {incoming_df.height}")
+
+        master_df = self.starrocks_service.fetch_master_dataset()
+        self._log(f"Master rows fetched: {master_df.height:,}")
+        print(f"Master rows fetched: {master_df.height}")
+
+        return uploaded_file, incoming_df, master_df, active_pairs
 
     def classify_result(self, grade_code: str, score: float, missing_count: int):
         rule = self.grade_rules[grade_code]
@@ -130,6 +175,20 @@ class MatchingServiceV2:
                 ]),
                 not row["nama_ibu_clean"]
             ])
+
+    def count_missing_attributes_custom(self, active_pairs, row):
+        """
+        Versi dinamis count_missing_attributes untuk grade 6. Menghitung
+        berapa field HASIL PAIRING (selain nik) yang kosong di baris incoming
+        — pola sama dengan grade 1-5: nik gak pernah dihitung sebagai
+        "missing attribute" karena dia cuma blocking key, bukan quality field.
+        """
+        checked_columns = [
+            resolve_clean_base(p["master_column"])
+            for p in active_pairs
+            if p["master_column"] != "nik"
+        ]
+        return sum(not row.get(f"{col}_clean") for col in checked_columns)
 
     def process_partition(self, uploaded_file, partition, master_df, file_id, grade):
         con = duckdb.connect()
@@ -215,6 +274,96 @@ class MatchingServiceV2:
 
             if best_match["result"] == 2:
                 sync_status = 1
+                incoming_row = (partition.filter(pl.col("id") == incoming_row_id).to_dicts()[0])
+
+                manual_review_rows.append({
+                    "file_id": file_id,
+                    "id_incoming": incoming_row.get("id"),
+                    "nik_incoming": None,
+                    "nama_incoming": incoming_row.get("nama"),
+                    "tempat_lahir_incoming": incoming_row.get("tempat_lahir"),
+                    "area_incoming": None,
+                    "tanggal_lahir_incoming": incoming_row.get("tanggal_lahir"),
+                    "jenis_kelamin": incoming_row.get("jenis_kelamin"),
+                    "nama_ibu_incoming": incoming_row.get("nama_ibu")
+                })
+
+        return results, manual_review_rows, sync_status
+
+    def process_custom_partition(self, uploaded_file, partition, master_df, file_id, active_pairs):
+        """
+        Versi process_partition untuk grade 6 (custom grading). Struktur &
+        alur SENGAJA dibuat sama persis dengan process_partition (termasuk
+        pola "isi default no-match untuk id yang gak muncul di results_map")
+        supaya perilakunya konsisten dengan grade 1-5. Bedanya cuma di 3
+        tempat: query join dinamis, missing_count dinamis, dan scoring
+        dinamis (weighted, bukan formula tetap per grade).
+        """
+        con = duckdb.connect()
+        con.register("incoming_df", partition.to_arrow())
+        con.register("master_df", master_df.to_arrow())
+
+        matching_query = build_dynamic_matching_query(active_pairs)
+        joined_df = con.execute(matching_query).pl()
+        self._log(f"Joined rows: {joined_df.height:,}")
+        print(f"Joined rows: {joined_df.height}")
+
+        results_map = {}
+        sync_status = 3
+        all_incoming_ids = (partition.select("id").to_series().to_list())
+
+        for row in joined_df.iter_rows(named=True):
+            incoming_row_id = row["incoming_row_id"]
+            if row["nik_master"] is None:
+                results_map[incoming_row_id] = {
+                    "score": 0,
+                    "result": 3,
+                    "nik_master": None
+                }
+                continue
+
+            missing_count = self.count_missing_attributes_custom(active_pairs, row)
+            score = self.scoring_service.compute_dynamic_similarity_score(active_pairs, row)
+
+            # grade_code 6 HARUS sudah ada sebagai row di tabel grade_rules
+            # (lihat catatan integrasi) supaya classify_result bisa jalan.
+            result = self.classify_result(6, score, missing_count)
+            existing = results_map.get(incoming_row_id)
+
+            if (existing is None or score > existing["score"]):
+                results_map[incoming_row_id] = {
+                    "score": score,
+                    "result": result,
+                    "nik_master": row["nik_master"]
+                }
+
+        for incoming_id in all_incoming_ids:
+            if incoming_id not in results_map:
+                results_map[incoming_id] = {
+                    "score": 0,
+                    "result": 3,
+                    "nik_master": None
+                }
+
+        results = []
+        manual_review_rows = []
+        for incoming_row_id, best_match in (results_map.items()):
+            results.append({
+                "id_incoming": incoming_row_id,
+                "nik_master": best_match["nik_master"],
+                "file_id": file_id,
+                "match_score": round(best_match["score"], 2),
+                "match_result": best_match["result"],
+                "upload_date": uploaded_file["upload_timestamp"]
+            })
+
+            if best_match["result"] == 2:
+                sync_status = 1
+                # Setelah rename di get_custom_matching_data, kolom raw di
+                # partition sudah pakai nama role standar (nama, tempat_lahir,
+                # dst) untuk field manapun yang ke-pairing — jadi block ini
+                # BISA reuse persis tanpa modifikasi. Field yang gak ke-pairing
+                # otomatis None lewat .get(), aman.
                 incoming_row = (partition.filter(pl.col("id") == incoming_row_id).to_dicts()[0])
 
                 manual_review_rows.append({
@@ -337,6 +486,128 @@ class MatchingServiceV2:
         self.audit_service.log_audit_event(
             actor_org_id="system_auto",
             action=f"MATCHING_GRADE_{grade}",
+            resource_type="FILE",
+            resource_id=file_id,
+            result="SUCCESS",
+            latency_ms=latency_ms,
+            after_state=json.dumps(response_data)
+        )
+
+        return response_data
+
+    def process_custom_matching_job(self, file_id: str, partition_size: int = 1_000_000):
+        """
+        Versi process_matching_job untuk grade 6 (custom grading). Struktur
+        SENGAJA dibuat identik dengan process_matching_job (insert institution,
+        insert manual_review, trigger AI reasoning, set sync complete,
+        auto-trigger export, audit log) — satu-satunya bagian yang beda adalah
+        sumber data (get_custom_matching_data) dan partition processor
+        (process_custom_partition). response_data ikut menyertakan key
+        "grade": 6 supaya processing/tasks.py (run_matching_task) yang generic
+        baca result.get("grade") TIDAK perlu diubah sama sekali.
+        """
+        start_time = time.perf_counter()
+        uploaded_file, incoming_df, master_df, active_pairs = (
+            self.get_custom_matching_data(file_id)
+        )
+        self.starrocks_service.set_sync_status_in_progress(file_id)
+
+        start = time.perf_counter()
+        all_results = []
+        all_manual_review_rows = []
+        final_sync_status = 3
+
+        for idx, partition in enumerate(self.partition_dataframe(incoming_df, partition_size)):
+            results, manual_review_rows, sync_status = self.process_custom_partition(
+                uploaded_file, partition, master_df, file_id, active_pairs
+            )
+
+            all_results.extend(results)
+            all_manual_review_rows.extend(manual_review_rows)
+
+            if sync_status == 1:
+                final_sync_status = 1
+
+            partition_msg = (
+                f"Partition {idx}: results={len(results):,}, "
+                f"manual_reviews={len(manual_review_rows):,}"
+            )
+            self._log(partition_msg)
+            print(partition_msg)
+
+        insert_query = text("""
+            INSERT INTO institution (
+                id_incoming,
+                nik_master,
+                file_id,
+                match_score,
+                match_result,
+                upload_date
+            )
+            VALUES (
+                :id_incoming,
+                :nik_master,
+                :file_id,
+                :match_score,
+                :match_result,
+                :upload_date
+            )
+        """)
+
+        matched_time_query = text("""
+            UPDATE uploaded_files
+            SET matching_time_ms = :matching_time_ms
+            WHERE file_id = :file_id
+        """)
+
+        matching_time_ms = round((time.perf_counter() - start) * 1000, 2)
+
+        inst_msg = f"Institution rows: {len(all_results):,}"
+        mr_msg   = f"Manual review rows: {len(all_manual_review_rows):,}"
+        self._log(inst_msg)
+        self._log(mr_msg)
+        print(inst_msg)
+        print(mr_msg)
+
+        self.starrocks_service.insert_institution(
+            insert_query, all_results, matched_time_query, matching_time_ms, file_id
+        )
+
+        if all_manual_review_rows:
+            self.starrocks_service.insert_manual_review(all_manual_review_rows)
+
+        self._log("Triggering AI...")
+        print("Triggering AI...")
+        self.trigger_ai_reasoning(file_id)
+        self.starrocks_service.set_sync_complete(file_id, final_sync_status)
+
+        self._log("Batch insert completed")
+        print("Batch insert completed")
+
+        if final_sync_status == 3:
+            print(f"Auto-triggering export worker for file: {file_id}")
+            generate_export_csv.apply_async(args=[file_id], queue="export_queue")
+
+        response_data = {
+            "message": "Grade 6 (Custom) matching completed",
+            "grade": 6,
+            "file_id": file_id,
+            "processed_rows": len(all_results),
+            "matched_rows": sum(
+                1 for r in all_results if r["match_result"] == 1
+            ),
+            "manual_review_rows": sum(
+                1 for r in all_results if r["match_result"] == 2
+            ),
+            "unmatched_rows": sum(
+                1 for r in all_results if r["match_result"] == 3
+            )
+        }
+
+        latency_ms = int((time.perf_counter() - start_time) * 1000)
+        self.audit_service.log_audit_event(
+            actor_org_id="system_auto",
+            action="MATCHING_GRADE_6",
             resource_type="FILE",
             resource_id=file_id,
             result="SUCCESS",

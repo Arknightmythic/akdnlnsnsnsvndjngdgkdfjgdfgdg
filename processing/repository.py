@@ -46,7 +46,8 @@ class StarrocksService:
                 grade,
                 matching_task_status,
                 sync_status,
-                is_sync
+                is_sync,
+                is_custom_ready
             FROM uploaded_files
             WHERE file_id = :file_id
         """)
