@@ -1,5 +1,7 @@
 import os
 import json
+import os
+import json
 import logging
 from celery import Task
 from sqlalchemy import create_engine, text

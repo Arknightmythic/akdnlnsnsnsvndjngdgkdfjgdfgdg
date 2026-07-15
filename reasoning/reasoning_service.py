@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import json
 import time
 from datetime import date, datetime
 from dotenv import load_dotenv
@@ -26,9 +27,13 @@ class ReasoningService:
 
     def __init__(self, engine):
         self.engine          = engine
+        self.engine          = engine
         self.pattern_detector = PatternDetector()
         self._audit          = AuditService(engine)
+        self._audit          = AuditService(engine)
 
+        llm_provider   = os.getenv("LLM_PROVIDER", "ollama").lower()
+        openai_base_url = os.getenv("OLLAMA_LOCAL_BASE_URL", "http://localhost:11434")
         llm_provider   = os.getenv("LLM_PROVIDER", "ollama").lower()
         openai_base_url = os.getenv("OLLAMA_LOCAL_BASE_URL", "http://localhost:11434")
         if not openai_base_url.endswith("/v1"):
@@ -36,6 +41,7 @@ class ReasoningService:
 
         if llm_provider == "vllm":
             self.llm = ChatOpenAI(
+                model=os.getenv("VLLM_MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct"),
                 model=os.getenv("VLLM_MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct"),
                 temperature=0.1,
                 base_url=openai_base_url,
@@ -76,12 +82,23 @@ class ReasoningService:
             return conn.execute(query, {"hash": pattern_hash}).mappings().first()
 
     def _save_pattern(self, pattern_hash, pattern_name_suffix, signature, template, sample_id):
+    def _save_pattern(self, pattern_hash, pattern_name_suffix, signature, template, sample_id):
         with self.engine.begin() as conn:
+            count_res    = conn.execute(text("SELECT COUNT(*) as c FROM reasoning_patterns")).mappings().first()
+            count        = count_res["c"] if count_res else 0
             count_res    = conn.execute(text("SELECT COUNT(*) as c FROM reasoning_patterns")).mappings().first()
             count        = count_res["c"] if count_res else 0
             pattern_name = f"P{count + 1:03d}_{pattern_name_suffix}"
             try:
                 conn.execute(
+                    text("""
+                        INSERT INTO reasoning_patterns
+                        (pattern_hash, pattern_name, pattern_signature, reason_template,
+                         sample_id, hit_count, created_at, updated_at)
+                        VALUES (:hash, :name, :sig, :tpl, :sid, 1, :now, :now)
+                    """),
+                    {"hash": pattern_hash, "name": pattern_name, "sig": signature,
+                     "tpl": template, "sid": sample_id, "now": datetime.now()},
                     text("""
                         INSERT INTO reasoning_patterns
                         (pattern_hash, pattern_name, pattern_signature, reason_template,
@@ -100,6 +117,8 @@ class ReasoningService:
             conn.execute(
                 text("UPDATE reasoning_patterns SET hit_count = hit_count + 1, updated_at = :now "
                      "WHERE pattern_hash = :hash"),
+                text("UPDATE reasoning_patterns SET hit_count = hit_count + 1, updated_at = :now "
+                     "WHERE pattern_hash = :hash"),
                 {"hash": pattern_hash, "now": datetime.now()},
             )
 
@@ -107,6 +126,7 @@ class ReasoningService:
     # Template helpers
     # ─────────────────────────────────────────────
 
+    def _convert_to_template(self, reason, row):
     def _convert_to_template(self, reason, row):
         tpl = reason
 
@@ -116,7 +136,9 @@ class ReasoningService:
             return re.sub(re.escape(str(search)), placeholder, original_text, flags=re.IGNORECASE)
 
         tpl = _replace_val(tpl, row.get("nama_lengkap"),        "{incoming.nama_lengkap}")
+        tpl = _replace_val(tpl, row.get("nama_lengkap"),        "{incoming.nama_lengkap}")
         tpl = _replace_val(tpl, row.get("master_nama_lengkap"), "{master.nama_lengkap}")
+        tpl = _replace_val(tpl, row.get("tempat_lahir"),        "{incoming.tempat_lahir}")
         tpl = _replace_val(tpl, row.get("tempat_lahir"),        "{incoming.tempat_lahir}")
         tpl = _replace_val(tpl, row.get("master_tempat_lahir"), "{master.tempat_lahir}")
 
@@ -128,17 +150,24 @@ class ReasoningService:
             tpl = re.sub(re.escape(tgl_ms), "{master.tanggal_lahir}", tpl, flags=re.IGNORECASE)
 
         tpl = _replace_val(tpl, row.get("nama_ibu"),        "{incoming.nama_ibu}")
+        tpl = _replace_val(tpl, row.get("nama_ibu"),        "{incoming.nama_ibu}")
         tpl = _replace_val(tpl, row.get("master_nama_ibu"), "{master.nama_ibu}")
         return tpl
 
     def _fill_template(self, template, row):
+    def _fill_template(self, template, row):
         r = template
+
 
         def _fmt_fill(val):
             v = str(val).strip()
             return "EMPTY" if v.lower() in {"none", "null", "nan", "", "kosong"} else v
 
+
         r = r.replace("{incoming.nama_lengkap}", _fmt_fill(row.get("nama_lengkap")))
+        r = r.replace("{master.nama_lengkap}",   _fmt_fill(row.get("master_nama_lengkap")))
+        r = r.replace("{incoming.tempat_lahir}",  _fmt_fill(row.get("tempat_lahir")))
+        r = r.replace("{master.tempat_lahir}",    _fmt_fill(row.get("master_tempat_lahir")))
         r = r.replace("{master.nama_lengkap}",   _fmt_fill(row.get("master_nama_lengkap")))
         r = r.replace("{incoming.tempat_lahir}",  _fmt_fill(row.get("tempat_lahir")))
         r = r.replace("{master.tempat_lahir}",    _fmt_fill(row.get("master_tempat_lahir")))
@@ -146,12 +175,17 @@ class ReasoningService:
         r = r.replace("{master.tanggal_lahir}",   _fmt_fill(self._format_date(row.get("master_tanggal_lahir"))))
         r = r.replace("{incoming.nama_ibu}",      _fmt_fill(row.get("nama_ibu")))
         r = r.replace("{master.nama_ibu}",        _fmt_fill(row.get("master_nama_ibu")))
+        r = r.replace("{master.tanggal_lahir}",   _fmt_fill(self._format_date(row.get("master_tanggal_lahir"))))
+        r = r.replace("{incoming.nama_ibu}",      _fmt_fill(row.get("nama_ibu")))
+        r = r.replace("{master.nama_ibu}",        _fmt_fill(row.get("master_nama_ibu")))
         return r
 
     # ─────────────────────────────────────────────
     # Data Fetching
+    # Data Fetching
     # ─────────────────────────────────────────────
 
+    def build_comparison_pairs(self, file_id, limit=None):
     def build_comparison_pairs(self, file_id, limit=None):
         query_str = """
             SELECT
@@ -163,8 +197,17 @@ class ReasoningService:
                 m.nama_lengkap AS master_nama_lengkap, m.tempat_lahir AS master_tempat_lahir,
                 m.tanggal_lahir AS master_tanggal_lahir, m.jenis_kelamin AS master_jenis_kelamin,
                 m.nama_ibu AS master_nama_ibu
+                mm.id AS id, mm.file_id AS file_id, mm.id_incoming AS id_incoming,
+                mm.nik_incoming AS nik_incoming,
+                mm.nama_incoming AS nama_lengkap, mm.tempat_lahir_incoming AS tempat_lahir,
+                mm.tanggal_lahir_incoming AS tanggal_lahir, mm.jenis_kelamin_incoming AS jenis_kelamin,
+                mm.nama_ibu_incoming AS nama_ibu,
+                m.nama_lengkap AS master_nama_lengkap, m.tempat_lahir AS master_tempat_lahir,
+                m.tanggal_lahir AS master_tanggal_lahir, m.jenis_kelamin AS master_jenis_kelamin,
+                m.nama_ibu AS master_nama_ibu
             FROM manual_matches mm
             JOIN master m ON mm.nik_incoming = m.nik
+            WHERE mm.file_id = :file_id AND mm.reasoning_status IN ('PENDING', 'FAILED')
             WHERE mm.file_id = :file_id AND mm.reasoning_status IN ('PENDING', 'FAILED')
 
             UNION ALL
@@ -178,9 +221,19 @@ class ReasoningService:
                 m.nama_lengkap AS master_nama_lengkap, m.tempat_lahir AS master_tempat_lahir,
                 m.tanggal_lahir AS master_tanggal_lahir, m.jenis_kelamin AS master_jenis_kelamin,
                 m.nama_ibu AS master_nama_ibu
+                mm.id AS id, mm.file_id AS file_id, mm.id_incoming AS id_incoming,
+                mm.nik_incoming AS nik_incoming,
+                mm.nama_incoming AS nama_lengkap, mm.tempat_lahir_incoming AS tempat_lahir,
+                mm.tanggal_lahir_incoming AS tanggal_lahir, mm.jenis_kelamin_incoming AS jenis_kelamin,
+                mm.nama_ibu_incoming AS nama_ibu,
+                m.nama_lengkap AS master_nama_lengkap, m.tempat_lahir AS master_tempat_lahir,
+                m.tanggal_lahir AS master_tanggal_lahir, m.jenis_kelamin AS master_jenis_kelamin,
+                m.nama_ibu AS master_nama_ibu
             FROM manual_matches mm
             JOIN institution inst ON inst.file_id = mm.file_id AND inst.id_incoming = mm.id_incoming
+            JOIN institution inst ON inst.file_id = mm.file_id AND inst.id_incoming = mm.id_incoming
             JOIN master m ON inst.nik_master = m.nik
+            WHERE mm.file_id = :file_id AND mm.reasoning_status IN ('PENDING', 'FAILED')
             WHERE mm.file_id = :file_id AND mm.reasoning_status IN ('PENDING', 'FAILED')
               AND (mm.nik_incoming IS NULL OR mm.nik_incoming = '')
         """
@@ -194,6 +247,7 @@ class ReasoningService:
             return None, "No pending records found in manual_matches for this file_id"
 
         seen, unique_rows = set(), []
+        seen, unique_rows = set(), []
         for row in rows:
             if row["id"] not in seen:
                 seen.add(row["id"])
@@ -202,8 +256,17 @@ class ReasoningService:
         return unique_rows, None
 
     def build_comparison_pair_by_id(self, mm_id):
+    def build_comparison_pair_by_id(self, mm_id):
         query_str = """
             SELECT
+                mm.id AS id, mm.file_id AS file_id, mm.id_incoming AS id_incoming,
+                mm.nik_incoming AS nik_incoming,
+                mm.nama_incoming AS nama_lengkap, mm.tempat_lahir_incoming AS tempat_lahir,
+                mm.tanggal_lahir_incoming AS tanggal_lahir, mm.jenis_kelamin_incoming AS jenis_kelamin,
+                mm.nama_ibu_incoming AS nama_ibu,
+                m.nama_lengkap AS master_nama_lengkap, m.tempat_lahir AS master_tempat_lahir,
+                m.tanggal_lahir AS master_tanggal_lahir, m.jenis_kelamin AS master_jenis_kelamin,
+                m.nama_ibu AS master_nama_ibu
                 mm.id AS id, mm.file_id AS file_id, mm.id_incoming AS id_incoming,
                 mm.nik_incoming AS nik_incoming,
                 mm.nama_incoming AS nama_lengkap, mm.tempat_lahir_incoming AS tempat_lahir,
@@ -227,9 +290,19 @@ class ReasoningService:
                 m.nama_lengkap AS master_nama_lengkap, m.tempat_lahir AS master_tempat_lahir,
                 m.tanggal_lahir AS master_tanggal_lahir, m.jenis_kelamin AS master_jenis_kelamin,
                 m.nama_ibu AS master_nama_ibu
+                mm.id AS id, mm.file_id AS file_id, mm.id_incoming AS id_incoming,
+                mm.nik_incoming AS nik_incoming,
+                mm.nama_incoming AS nama_lengkap, mm.tempat_lahir_incoming AS tempat_lahir,
+                mm.tanggal_lahir_incoming AS tanggal_lahir, mm.jenis_kelamin_incoming AS jenis_kelamin,
+                mm.nama_ibu_incoming AS nama_ibu,
+                m.nama_lengkap AS master_nama_lengkap, m.tempat_lahir AS master_tempat_lahir,
+                m.tanggal_lahir AS master_tanggal_lahir, m.jenis_kelamin AS master_jenis_kelamin,
+                m.nama_ibu AS master_nama_ibu
             FROM manual_matches mm
             JOIN institution inst ON inst.file_id = mm.file_id AND inst.id_incoming = mm.id_incoming
+            JOIN institution inst ON inst.file_id = mm.file_id AND inst.id_incoming = mm.id_incoming
             JOIN master m ON inst.nik_master = m.nik
+            WHERE mm.id = :mm_id AND (mm.nik_incoming IS NULL OR mm.nik_incoming = '')
             WHERE mm.id = :mm_id AND (mm.nik_incoming IS NULL OR mm.nik_incoming = '')
         """
         with self.engine.connect() as conn:
@@ -248,23 +321,39 @@ class ReasoningService:
             ).mappings().first()
         return dict(row) if row else {}
 
+    def _get_reasoning_status_before(self, mm_id: int) -> dict:
+        """Fetch reasoning_status sebelum diubah, untuk before_state audit."""
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT reasoning_status FROM manual_matches WHERE id = :id"),
+                {"id": mm_id}
+            ).mappings().first()
+        return dict(row) if row else {}
+
     # ─────────────────────────────────────────────
+    # DB Write helpers
     # DB Write helpers
     # ─────────────────────────────────────────────
 
     def _update_mm_status(self, mm_id, status):
+    def _update_mm_status(self, mm_id, status):
         with self.engine.begin() as conn:
             conn.execute(
+                text("UPDATE manual_matches SET reasoning_status = :status WHERE id = :id"),
                 text("UPDATE manual_matches SET reasoning_status = :status WHERE id = :id"),
                 {"status": status, "id": mm_id},
             )
             if status == "FAILED":
                 row_file = conn.execute(
                     text("SELECT file_id FROM manual_matches WHERE id = :id"), {"id": mm_id}
+                    text("SELECT file_id FROM manual_matches WHERE id = :id"), {"id": mm_id}
                 ).mappings().first()
                 if row_file and row_file["file_id"]:
                     file_id   = row_file["file_id"]
+                    file_id   = row_file["file_id"]
                     count_res = conn.execute(
+                        text("SELECT COUNT(*) as c FROM manual_matches "
+                             "WHERE file_id = :file_id AND reasoning_status IN ('PENDING', 'PROCESSING')"),
                         text("SELECT COUNT(*) as c FROM manual_matches "
                              "WHERE file_id = :file_id AND reasoning_status IN ('PENDING', 'PROCESSING')"),
                         {"file_id": file_id}
@@ -276,13 +365,19 @@ class ReasoningService:
                         )
 
     def _update_mm_result(self, mm_id, reason, pattern_name, source):
+    def _update_mm_result(self, mm_id, reason, pattern_name, source):
         with self.engine.begin() as conn:
             row_file = conn.execute(
+                text("SELECT file_id FROM manual_matches WHERE id = :id"), {"id": mm_id}
                 text("SELECT file_id FROM manual_matches WHERE id = :id"), {"id": mm_id}
             ).mappings().first()
             file_id = row_file["file_id"] if row_file else None
 
             conn.execute(
+                text("UPDATE manual_matches "
+                     "SET reason = :reason, pattern_name = :pname, "
+                     "    reasoning_source = :source, reasoning_status = 'COMPLETED' "
+                     "WHERE id = :id"),
                 text("UPDATE manual_matches "
                      "SET reason = :reason, pattern_name = :pname, "
                      "    reasoning_source = :source, reasoning_status = 'COMPLETED' "
@@ -294,6 +389,8 @@ class ReasoningService:
                 count_res = conn.execute(
                     text("SELECT COUNT(*) as c FROM manual_matches "
                          "WHERE file_id = :file_id AND reasoning_status IN ('PENDING', 'PROCESSING')"),
+                    text("SELECT COUNT(*) as c FROM manual_matches "
+                         "WHERE file_id = :file_id AND reasoning_status IN ('PENDING', 'PROCESSING')"),
                     {"file_id": file_id}
                 ).mappings().first()
                 if count_res and count_res["c"] == 0:
@@ -302,6 +399,9 @@ class ReasoningService:
                         {"file_id": file_id}
                     )
 
+    # ─────────────────────────────────────────────
+    # Processing — by ID
+    # ─────────────────────────────────────────────
     # ─────────────────────────────────────────────
     # Processing — by ID
     # ─────────────────────────────────────────────
@@ -318,24 +418,41 @@ class ReasoningService:
         # BEFORE_STATE: ambil reasoning_status sebelum diubah
         before_state = self._get_reasoning_status_before(mm_id) if not dry_run else {}
 
+        # BEFORE_STATE: ambil reasoning_status sebelum diubah
+        before_state = self._get_reasoning_status_before(mm_id) if not dry_run else {}
+
         if not dry_run and commit_to_db:
             self._update_mm_status(mm_id, "PROCESSING")
 
         pattern_info = self.pattern_detector.detect(row)
         pattern_hash = pattern_info["pattern_hash"]
         cached       = self._get_cached_pattern(pattern_hash) if not dry_run else None
+        cached       = self._get_cached_pattern(pattern_hash) if not dry_run else None
         llm_duration = 0.0
 
         try:
             if cached:
                 reason_text  = self._fill_template(cached["reason_template"], row)
+                reason_text  = self._fill_template(cached["reason_template"], row)
                 pattern_name = cached["pattern_name"]
+                source       = "CACHE"
                 source       = "CACHE"
 
                 if not dry_run:
                     if commit_to_db:
+                    if commit_to_db:
                         self._increment_pattern_hit(pattern_hash)
                         self._update_mm_result(mm_id, reason_text, pattern_name, source)
+                        # Audit: reasoning selesai via CACHE
+                        self._audit.log_audit_event(
+                            actor_org_id="system_auto",
+                            action="REASONING_COMPLETED",
+                            resource_type="MANUAL_MATCH",
+                            resource_id=str(mm_id),
+                            result="SUCCESS",
+                            before_state=json.dumps(before_state),
+                            after_state=json.dumps({"reasoning_status": "COMPLETED", "source": "CACHE", "pattern_name": pattern_name}),
+                        )
                         # Audit: reasoning selesai via CACHE
                         self._audit.log_audit_event(
                             actor_org_id="system_auto",
@@ -354,6 +471,7 @@ class ReasoningService:
                     v = str(val).strip()
                     return "KOSONG" if v.lower() in {"none", "null", "nan", ""} else v
 
+                human_prompt  = f"ID: {mm_id}\n\nInstitution (Incoming):\n"
                 human_prompt  = f"ID: {mm_id}\n\nInstitution (Incoming):\n"
                 human_prompt += f"  Nama Lengkap   : {_fmt(row['nama_lengkap'])}\n"
                 human_prompt += f"  Tempat Lahir   : {_fmt(row['tempat_lahir'])}\n"
@@ -374,18 +492,36 @@ class ReasoningService:
 
                 llm_start    = time.perf_counter()
                 response     = self.llm.invoke(messages)
+                llm_start    = time.perf_counter()
+                response     = self.llm.invoke(messages)
                 llm_duration = time.perf_counter() - llm_start
+                reason_text  = response.reason
+                source       = "LLM"
                 reason_text  = response.reason
                 source       = "LLM"
 
                 if not dry_run:
                     template     = self._convert_to_template(reason_text, row)
+                    template     = self._convert_to_template(reason_text, row)
                     pattern_name = self._save_pattern(
+                        pattern_hash, pattern_info["pattern_name_suffix"],
+                        pattern_info["pattern_signature"], template, mm_id,
                         pattern_hash, pattern_info["pattern_name_suffix"],
                         pattern_info["pattern_signature"], template, mm_id,
                     )
                     if commit_to_db:
+                    if commit_to_db:
                         self._update_mm_result(mm_id, reason_text, pattern_name, source)
+                        # Audit: reasoning selesai via LLM
+                        self._audit.log_audit_event(
+                            actor_org_id="system_auto",
+                            action="REASONING_COMPLETED",
+                            resource_type="MANUAL_MATCH",
+                            resource_id=str(mm_id),
+                            result="SUCCESS",
+                            before_state=json.dumps(before_state),
+                            after_state=json.dumps({"reasoning_status": "COMPLETED", "source": "LLM", "pattern_name": pattern_name}),
+                        )
                         # Audit: reasoning selesai via LLM
                         self._audit.log_audit_event(
                             actor_org_id="system_auto",
@@ -415,10 +551,22 @@ class ReasoningService:
                     before_state=json.dumps(before_state),
                     after_state=json.dumps({"reasoning_status": "FAILED", "error": str(exc)}),
                 )
+                # Audit: reasoning FAILED
+                self._audit.log_audit_event(
+                    actor_org_id="system_auto",
+                    action="REASONING_COMPLETED",
+                    resource_type="MANUAL_MATCH",
+                    resource_id=str(mm_id),
+                    result="FAILED",
+                    before_state=json.dumps(before_state),
+                    after_state=json.dumps({"reasoning_status": "FAILED", "error": str(exc)}),
+                )
             return {"status": "error", "message": str(exc), "id": mm_id}
 
         row_duration = time.perf_counter() - start_row
         return {
+            "status": "success", "id": mm_id, "reason": reason_text,
+            "pattern_name": pattern_name, "source": source,
             "status": "success", "id": mm_id, "reason": reason_text,
             "pattern_name": pattern_name, "source": source,
             "llm_time_seconds": round(llm_duration, 2),
