@@ -573,8 +573,7 @@ class ReasoningService:
             "total_time_seconds": round(row_duration, 2),
         }
 
-
-    def bulk_update_mm_results(self, results: list):
+    def bulk_update_mm_results(self, results: list, file_id: str = None):
         success_data = []
         error_data   = []
         sample_id    = None  # Ditambahkan untuk mencari referensi file_id

@@ -8,10 +8,6 @@ from sqlalchemy import create_engine, text
 
 from audit.writer import AuditWriter
 from worker import celery_app
-from celery import Task
-from sqlalchemy import create_engine, text
-
-from worker import celery_app
 
 logger = logging.getLogger(__name__)
 
