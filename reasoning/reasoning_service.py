@@ -425,8 +425,7 @@ class ReasoningService:
             "total_time_seconds": round(row_duration, 2),
         }
 
-
-    def bulk_update_mm_results(self, results: list):
+    def bulk_update_mm_results(self, results: list, file_id: str = None):
         success_data = []
         error_data   = []
         sample_id    = None  # Ditambahkan untuk mencari referensi file_id
@@ -488,7 +487,16 @@ class ReasoningService:
                         {"file_id": file_id}
                     )
 
-        print(f"[Bulk Update] {len(success_data)} sukses & {len(error_data)} gagal.")
+        msg_bulk = f"[Bulk Update] {len(success_data)} sukses & {len(error_data)} gagal."
+        print(msg_bulk)
+        if file_id:
+            from reasoning.handler import push_reasoning_log
+            push_reasoning_log(file_id, msg_bulk, level="WARN")
+            
+            # Jika batch ini adalah penyelesaian akhir (count = 0), TUTUP STREAM UI!
+            if count_res and count_res["c"] == 0:
+                push_reasoning_log(file_id, "__DONE__", level="SUCCESS")
+
     def process_reasoning(self, file_id, dry_run=False, limit=None):
         """Proses semua baris PENDING untuk satu file_id (sync, untuk testing)."""
         start_total = time.perf_counter()

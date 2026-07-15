@@ -4,6 +4,7 @@ from audit.writer import AuditWriter
 from util.parquet_loader import ParquetLoader
 from pydantic import BaseModel
 from .enum import MatchStatus
+import time
 
 
 class MarkMatchRequest(BaseModel):
@@ -29,6 +30,7 @@ class RetrieveDataRoutes:
         resource_type: str,
         resource_id: str,
         actor_user_id: str = "anonymous_poc",
+        latency_ms: int = 0
     ):
         writer = AuditWriter(
             engine=request.app.state.starrocks_engine,
@@ -41,7 +43,7 @@ class RetrieveDataRoutes:
             resource_id=resource_id,
             ip_address=self._client_ip(request),
             result="SUCCESS",
-            latency_ms=0,
+            latency_ms=latency_ms,
             actor_user_id=actor_user_id,
         )
 
@@ -53,13 +55,18 @@ class RetrieveDataRoutes:
             background_tasks: BackgroundTasks,
             page: int = Query(default=1, ge=1),
         ):
+            start_time = time.time()
+            handler = RetrieveDataHandler(request.app.state.starrocks_engine)
+            result = handler.get_graded_files(page)
+            latency_ms = int((time.time() - start_time) * 1000)
+
             await self._log_access(
                 request, background_tasks,
                 "VIEW_GRADED_FILES_LIST", "LIST_VIEW", f"page_{page}",
+                latency_ms=latency_ms
             )
-            handler = RetrieveDataHandler(request.app.state.starrocks_engine)
-            return handler.get_graded_files(page)
-
+            return result
+        
         @self.router.get("/synchronized_files")
         async def get_synchronized_data(
             request: Request,
@@ -69,17 +76,22 @@ class RetrieveDataRoutes:
             grade: str = Query(...),
             sync_status: str = Query(...),
         ):
-            await self._log_access(
-                request, background_tasks,
-                "VIEW_SYNCHRONIZED_FILES", "LIST_VIEW", f"page_{page}",
-            )
+            start_time = time.time()
             handler = RetrieveDataHandler(request.app.state.starrocks_engine)
-            return handler.get_synchronized_files(
+            result = handler.get_synchronized_files(
                 page=page,
                 institution_name=institution_name,
                 grade=grade,
                 sync_status=sync_status,
             )
+            latency_ms = int((time.time() - start_time) * 1000)
+            
+            await self._log_access(
+                request, background_tasks,
+                "VIEW_SYNCHRONIZED_FILES", "LIST_VIEW", f"page_{page}",
+                latency_ms=latency_ms
+            )
+            return result
 
         @self.router.get("/history_data")
         async def get_history_data(
@@ -90,17 +102,22 @@ class RetrieveDataRoutes:
             start_date: str = Query(...),
             end_date: str = Query(...),
         ):
-            await self._log_access(
-                request, background_tasks,
-                "VIEW_HISTORY_DATA", "LIST_VIEW", f"page_{page}",
-            )
+            start_time = time.time()
             handler = RetrieveDataHandler(request.app.state.starrocks_engine)
-            return handler.get_history_data(
+            result = handler.get_history_data(
                 page=page,
                 institution_name=institution_name,
                 start_date=start_date,
                 end_date=end_date,
             )
+            latency_ms = int((time.time() - start_time) * 1000)
+            
+            await self._log_access(
+                request, background_tasks,
+                "VIEW_HISTORY_DATA", "LIST_VIEW", f"page_{page}",
+                latency_ms=latency_ms
+            )
+            return result
 
         @self.router.get("/preview-data/{file_id}")
         async def preview_data(
@@ -108,10 +125,7 @@ class RetrieveDataRoutes:
             request: Request,
             background_tasks: BackgroundTasks,
         ):
-            await self._log_access(
-                request, background_tasks,
-                "VIEW_PREVIEW_DATA", "FILE", file_id,
-            )
+            start_time = time.time()
             handler = RetrieveDataHandler(
                 engine=request.app.state.starrocks_engine,
                 parquet_loader=ParquetLoader(
@@ -121,7 +135,15 @@ class RetrieveDataRoutes:
                 ),
                 redis=request.app.state.redis,
             )
-            return await handler.get_preview_data(file_id=file_id)
+            result = await handler.get_preview_data(file_id=file_id)
+            latency_ms = int((time.time() - start_time) * 1000)
+            
+            await self._log_access(
+                request, background_tasks,
+                "VIEW_PREVIEW_DATA", "FILE", file_id,
+                latency_ms=latency_ms
+            )
+            return result
 
         @self.router.get("/manual-review-data")
         async def manual_review_data(
@@ -130,10 +152,7 @@ class RetrieveDataRoutes:
             file_id: str = Query(...),
             page: int = Query(..., ge=1),
         ):
-            await self._log_access(
-                request, background_tasks,
-                "VIEW_MANUAL_REVIEW_DATA", "FILE", file_id,
-            )
+            start_time = time.time()
             handler = RetrieveDataHandler(
                 engine=request.app.state.starrocks_engine,
                 parquet_loader=ParquetLoader(
@@ -143,7 +162,15 @@ class RetrieveDataRoutes:
                 ),
                 redis=request.app.state.redis,
             )
-            return await handler.get_manual_review_data(file_id=file_id, page=page)
+            result = await handler.get_manual_review_data(file_id=file_id, page=page)
+            latency_ms = int((time.time() - start_time) * 1000)
+            
+            await self._log_access(
+                request, background_tasks,
+                "VIEW_MANUAL_REVIEW_DATA", "FILE", file_id,
+                latency_ms=latency_ms
+            )
+            return result
 
         @self.router.patch("/files/{file_id}/data/{id_incoming}/match-status")
         async def mark_manual_match_unmatch(
@@ -153,16 +180,21 @@ class RetrieveDataRoutes:
             request: Request,
             background_tasks: BackgroundTasks,
         ):
-            await self._log_access(
-                request, background_tasks,
-                "MARK_MATCH_STATUS", "FILE", file_id,
-            )
+            start_time = time.time()
             handler = RetrieveDataHandler(engine=request.app.state.starrocks_engine)
-            return handler.mark_match_unmatch(
+            result = handler.mark_match_unmatch(
                 file_id=file_id,
                 id_incoming=id_incoming,
                 match_status=payload.match_status,
             )
+            latency_ms = int((time.time() - start_time) * 1000)
+            
+            await self._log_access(
+                request, background_tasks,
+                "MARK_MATCH_STATUS", "FILE", file_id,
+                latency_ms=latency_ms
+            )
+            return result
 
         @self.router.patch("/mark-as-completed/files/{file_id}")
         async def mark_as_completed(
@@ -170,16 +202,21 @@ class RetrieveDataRoutes:
             request: Request,
             background_tasks: BackgroundTasks,
         ):
-            await self._log_access(
-                request, background_tasks,
-                "MARK_FILE_COMPLETED", "FILE", file_id,
-            )
+            start_time = time.time()
             handler = RetrieveDataHandler(
                 engine=request.app.state.starrocks_engine,
                 minio_client=request.app.state.minio_client,
                 bucket_name=request.app.state.raw_bucket,
             )
-            return handler.mark_as_completed(file_id=file_id)
+            result = handler.mark_as_completed(file_id=file_id)
+            latency_ms = int((time.time() - start_time) * 1000)
+            
+            await self._log_access(
+                request, background_tasks,
+                "MARK_FILE_COMPLETED", "FILE", file_id,
+                latency_ms=latency_ms
+            )
+            return result
 
         @self.router.get("/files/{file_id}/export-status")
         async def export_status(
@@ -187,12 +224,17 @@ class RetrieveDataRoutes:
             request: Request,
             background_tasks: BackgroundTasks,
         ):
+            start_time = time.time()
+            handler = RetrieveDataHandler(engine=request.app.state.starrocks_engine)
+            result = handler.get_export_status(file_id)
+            latency_ms = int((time.time() - start_time) * 1000)
+            
             await self._log_access(
                 request, background_tasks,
                 "VIEW_EXPORT_STATUS", "FILE", file_id,
+                latency_ms=latency_ms
             )
-            handler = RetrieveDataHandler(engine=request.app.state.starrocks_engine)
-            return handler.get_export_status(file_id)
+            return result
 
         @self.router.get("/files/{file_id}/export/download")
         async def download_export(
@@ -204,25 +246,35 @@ class RetrieveDataRoutes:
             if type not in ["match", "unmatch"]:
                 return {"error": "Type must be 'match' or 'unmatch'"}
 
-            await self._log_access(
-                request, background_tasks,
-                f"DOWNLOAD_EXPORT_{type.upper()}", "FILE", file_id,
-            )
+            start_time = time.time()
             handler = RetrieveDataHandler(
                 engine=request.app.state.starrocks_engine,
                 minio_client=request.app.state.minio_client,
                 bucket_name=request.app.state.raw_bucket,
             )
-            return handler.get_export_download_url(file_id, type)
+            result = handler.get_export_download_url(file_id, type)
+            latency_ms = int((time.time() - start_time) * 1000)
+            
+            await self._log_access(
+                request, background_tasks,
+                f"DOWNLOAD_EXPORT_{type.upper()}", "FILE", file_id,
+                latency_ms=latency_ms
+            )
+            return result
 
         @self.router.get("/summary_dashboard")
         async def get_summary_dashboard(
             request: Request,
             background_tasks: BackgroundTasks,
         ):
+            start_time = time.time()
+            handler = RetrieveDataHandler(request.app.state.starrocks_engine)
+            result = handler.get_summary_dashboard()
+            latency_ms = int((time.time() - start_time) * 1000)
+            
             await self._log_access(
                 request, background_tasks,
                 "VIEW_SUMMARY_DASHBOARD", "DASHBOARD", "summary",
+                latency_ms=latency_ms
             )
-            handler = RetrieveDataHandler(request.app.state.starrocks_engine)
-            return handler.get_summary_dashboard()
+            return result

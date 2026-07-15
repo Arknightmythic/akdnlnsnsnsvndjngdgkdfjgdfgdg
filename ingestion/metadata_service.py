@@ -25,7 +25,10 @@ class MetadataService:
                 minio_path,
                 upload_timestamp,
                 processing_status,
-                row_count
+                row_count,
+                reasoning_task_status,
+                investigate_url,
+                preview_url
             )
             VALUES (
                 :file_id,
@@ -34,7 +37,10 @@ class MetadataService:
                 :minio_path,
                 :upload_timestamp,
                 :processing_status,
-                :row_count
+                :row_count,
+                'IDLE',
+                NULL,
+                NULL
             )
         """)
 
