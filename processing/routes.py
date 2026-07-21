@@ -29,12 +29,26 @@ class MatchFileRoutes:
                 result="SUCCESS"
             )
 
-            # 1. Lempar ke Celery dan dapatkan task_id
+            starrocks_service = StarrocksService(request.app.state.starrocks_engine)
+
+            # 1. Tandai PROCESSING SEBELUM dispatch ke Celery. Urutan ini penting:
+            # kalau apply_async() dipanggil dulu, untuk file kecil worker bisa saja
+            # sudah selesai dan menulis status SUCCESS/FAILED sebelum baris ini
+            # sempat jalan — status akhirnya balik tertimpa jadi PROCESSING selamanya.
+            # start_new_matching_run() juga membersihkan reasoning_task_status,
+            # preview_url, investigate_url, dan export_status — supaya file yang
+            # DI-RE-MATCH (mis. setelah regenerate custom mapping) tidak menyisakan
+            # kombinasi status basi dari run sebelumnya (matching PROCESSING tapi
+            # reasoning/preview masih menunjukkan hasil lama yang sudah SUCCESS).
+            starrocks_service.start_new_matching_run(file_id)
+
+            # 2. Baru lempar ke Celery dan dapatkan task_id
             task = run_matching_task.apply_async(args=[file_id], queue="matching_queue")
 
-            # 2. Update DB jadi PROCESSING
-            starrocks_service = StarrocksService(request.app.state.starrocks_engine)
-            starrocks_service.set_matching_task_info(file_id, task.id, "PROCESSING")
+            # 3. Simpan task_id SAJA (tidak menyentuh status) — kalau worker sudah
+            # keburu selesai di titik ini, status SUCCESS/FAILED yang sudah ditulis
+            # worker tidak boleh tertimpa balik ke PROCESSING.
+            starrocks_service.set_matching_task_id(file_id, task.id)
 
             return JSONResponse(
                 status_code=status.HTTP_202_ACCEPTED,

@@ -217,17 +217,23 @@ class ObjectStorageService:
             )
 
         df = df.with_columns(expressions)
-        df = df.with_columns(
-            pl.when(
-                pl.col("tanggal_lahir_clean")
-                    .dt.year()
-                    < 1900
+
+        # Guard: tanggal_lahir_clean cuma ada kalau kolom "tanggal_lahir" tadinya
+        # ada di file incoming (lihat blok kondisional di atas). Tanpa guard ini,
+        # file grade 1/2 (tanpa tanggal_lahir) atau grade 6 yang tidak memasangkan
+        # tanggal_lahir akan crash ColumnNotFoundError (BUG_FIXING_GUIDE.md #5).
+        if "tanggal_lahir_clean" in df.columns:
+            df = df.with_columns(
+                pl.when(
+                    pl.col("tanggal_lahir_clean")
+                        .dt.year()
+                        < 1900
+                )
+                .then(None)
+                .otherwise(
+                    pl.col("tanggal_lahir_clean")
+                )
+                .alias("tanggal_lahir_clean")
             )
-            .then(None)
-            .otherwise(
-                pl.col("tanggal_lahir_clean")
-            )
-            .alias("tanggal_lahir_clean")
-        )
 
         return df

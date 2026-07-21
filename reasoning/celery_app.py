@@ -15,8 +15,12 @@ celery_app.conf.update(
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
+    # enable_utc=False disamakan dengan worker.py (celery_app utama) — kalau beda,
+    # crontab/interval beat schedule ditafsirkan di timezone berbeda antara dua
+    # Celery app ini walau sama-sama declare timezone="Asia/Jakarta"
+    # (lihat BUG_FIXING_GUIDE.md #9).
     timezone="Asia/Jakarta",
-    enable_utc=True,
+    enable_utc=False,
     broker_connection_retry_on_startup=True,
     result_expires=3600,
     worker_prefetch_multiplier=1,

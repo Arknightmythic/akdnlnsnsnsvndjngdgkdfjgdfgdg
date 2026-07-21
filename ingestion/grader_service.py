@@ -1,7 +1,7 @@
 import time
 import polars as pl
 from sqlalchemy import text
-from datetime import datetime, timezone
+from datetime import datetime
 from .enums import Grade, Process
 
 
@@ -129,7 +129,9 @@ class GraderService:
                 "file_id": file_id,
                 "grade": int(grade),
                 "processing_status": int(Process.GRADED.value),
-                "upload_timestamp": datetime.now(timezone.utc),
+                # naive local/Jakarta — disamakan dengan metadata_service.py yang
+                # INSERT kolom yang sama (lihat BUG_FIXING_GUIDE.md #9)
+                "upload_timestamp": datetime.now(),
                 "grading_time_ms": grading_time,
             }
 

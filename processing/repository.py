@@ -124,14 +124,21 @@ class StarrocksService:
     def insert_manual_review(self, rows):
         print(f"Manual review rows: {len(rows)}")
 
+        # jenis_kelamin_incoming HARUS ada di sini — sebelumnya kolom ini absen
+        # dari INSERT sehingga selalu tersimpan NULL walau baris yang dikirim
+        # (lihat matching_service_new.py) membawa nilainya. Akibatnya
+        # PatternDetector di reasoning selalu menilai gender "kosong" dan
+        # mencemari cache reasoning_patterns (lihat BUG_FIXING_GUIDE.md #4).
         query = text("""
             INSERT INTO manual_matches (
                 file_id, id_incoming, nik_incoming, nama_incoming,
-                tempat_lahir_incoming, area_incoming, tanggal_lahir_incoming, nama_ibu_incoming
+                tempat_lahir_incoming, area_incoming, tanggal_lahir_incoming,
+                jenis_kelamin_incoming, nama_ibu_incoming
             )
             VALUES (
                 :file_id, :id_incoming, :nik_incoming, :nama_incoming,
-                :tempat_lahir_incoming, :area_incoming, :tanggal_lahir_incoming, :nama_ibu_incoming
+                :tempat_lahir_incoming, :area_incoming, :tanggal_lahir_incoming,
+                :jenis_kelamin_incoming, :nama_ibu_incoming
             )
         """)
 
@@ -168,3 +175,59 @@ class StarrocksService:
                     """),
                     {"file_id": file_id, "status": status},
                 )
+
+    def start_new_matching_run(self, file_id: str):
+        """
+        Dipanggil SEBELUM apply_async(), menggantikan set_matching_task_info()
+        untuk kasus start matching. Selain menandai matching_task_status
+        PROCESSING, kolom-kolom lain yang merupakan jejak RUN SEBELUMNYA juga
+        di-reset dalam UPDATE yang sama:
+
+        - reasoning_task_status -> 'IDLE' (kalau tidak, file yang di-re-match
+          setelah sebelumnya pernah selesai akan menunjukkan matching_task_status
+          PROCESSING berdampingan dengan reasoning_task_status SUCCESS yang
+          sebenarnya sisa run lama — kombinasi yang membingungkan dan salah).
+        - preview_url / investigate_url -> NULL (kalau tidak, keduanya masih
+          menunjuk ke hasil matching run SEBELUMNYA selama run baru berjalan —
+          siapa pun yang membuka link itu di tengah proses akan melihat data
+          basi, bukan error atau data terbaru).
+        - export_status -> 'IDLE' (file export lama sudah tidak merepresentasikan
+          hasil matching yang baru; men-download-nya harus diblok sampai export
+          baru selesai, bukan diam-diam menyajikan CSV lama).
+
+        Semua ini harus terjadi SEBELUM dispatch ke Celery, dengan alasan yang
+        sama seperti kenapa matching_task_status di-set PROCESSING sebelum
+        apply_async(): mencegah race kalau worker sempat lebih cepat menulis
+        ulang kolom-kolom ini (mis. reasoning yang sudah selesai duluan untuk
+        file kecil) sebelum reset ini sempat jalan.
+        """
+        query = text("""
+            UPDATE uploaded_files
+            SET matching_task_status = 'PROCESSING',
+                reasoning_task_status = 'IDLE',
+                reasoning_task_id = NULL,
+                preview_url = NULL,
+                investigate_url = NULL,
+                export_status = 'IDLE'
+            WHERE file_id = :file_id
+        """)
+        with self.engine.begin() as conn:
+            conn.execute(query, {"file_id": file_id})
+
+    def set_matching_task_id(self, file_id: str, task_id: str):
+        """
+        Update HANYA matching_task_id, tanpa menyentuh matching_task_status.
+
+        Dipakai di processing/routes.py SETELAH apply_async(): pada saat itu
+        worker mungkin sudah selesai duluan (file kecil) dan sudah menulis
+        status SUCCESS/FAILED. Kalau kita ikut menimpa status di sini juga,
+        status final itu bisa balik tertulis PROCESSING selamanya — itulah
+        race condition yang diperbaiki (lihat BUG_FIXING_GUIDE.md #7).
+        """
+        query = text("""
+            UPDATE uploaded_files
+            SET matching_task_id = :task_id
+            WHERE file_id = :file_id
+        """)
+        with self.engine.begin() as conn:
+            conn.execute(query, {"file_id": file_id, "task_id": task_id})

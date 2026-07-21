@@ -153,9 +153,17 @@ class RetrieveRepository:
         return [dict(row) for row in rows], total_rows
 
     def get_minio_path(self, file_id: str):
+        # institution_name & grade ditambahkan di sini supaya get_preview_data
+        # dan get_manual_review_data bisa mengembalikan metadata itu langsung
+        # dari file_id — sumber tunggal yang selalu benar, dipakai FE supaya
+        # tampilan Preview/Investigate identik baik dibuka dari tombol List
+        # maupun dari link mana pun (chatbot, dsb) yang cuma bawa file_id.
         q = text("""
-            SELECT minio_path, is_sync, sync_status
-            FROM uploaded_files WHERE file_id = :file_id
+            SELECT uf.minio_path, uf.is_sync, uf.sync_status,
+                   uf.institution_name, rg.grade_code AS grade
+            FROM uploaded_files uf
+            LEFT JOIN ref_grades rg ON uf.grade = rg.grade_id
+            WHERE uf.file_id = :file_id
         """)
         with self.engine.connect() as conn:
             return conn.execute(q, {"file_id": file_id}).mappings().first()

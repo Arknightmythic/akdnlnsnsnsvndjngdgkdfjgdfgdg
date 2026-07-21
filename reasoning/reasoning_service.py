@@ -79,7 +79,11 @@ class ReasoningService:
         with self.engine.begin() as conn:
             count_res    = conn.execute(text("SELECT COUNT(*) as c FROM reasoning_patterns")).mappings().first()
             count        = count_res["c"] if count_res else 0
-            pattern_name = f"P{count + 1:03d}_{pattern_name_suffix}"
+            # pattern_hash[:6] ditempel supaya pattern_name tetap unik walau
+            # dua worker reasoning paralel membaca COUNT(*) yang sama sebelum
+            # keduanya commit (race — lihat BUG_FIXING_GUIDE.md #8). pattern_hash
+            # sendiri dijamin unik karena dia primary key tabel ini.
+            pattern_name = f"P{count + 1:03d}_{pattern_hash[:6]}_{pattern_name_suffix}"
             try:
                 conn.execute(
                     text("""

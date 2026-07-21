@@ -53,7 +53,11 @@ class MetadataService:
                     "original_filename": original_filename,
                     "institution_name": institution_name,
                     "minio_path": minio_path,
-                    "upload_timestamp": datetime.utcnow(),
+                    # datetime.now() (naive local/Jakarta) — disamakan dengan
+                    # grader_service.py yang meng-UPDATE kolom yang sama, supaya
+                    # upload_timestamp tidak melompat ~7 jam saat grading selesai
+                    # (lihat BUG_FIXING_GUIDE.md #9).
+                    "upload_timestamp": datetime.now(),
                     "processing_status": int(process),
                     "row_count": row_count
                 }

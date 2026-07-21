@@ -22,14 +22,17 @@ the grading/matching process completes.
 - This table is **small** (one row per file batch).
 - It is safe to query frequently. Always join `ref_grades`, `ref_sync_statuses`,
 - and `ref_process` to show human-readable labels.
-- **Synchronization Status**:
+- **Synchronization Status Rules**:
     - File is **in synchronization** if:
-        1. Matching & reasoning are still processing (`matching_task_status` is 'processing' AND `reasoning_task_status` is 'idle' or 'processing').
-        2. Matching is successful & reasoning is still processing (`matching_task_status` is 'Success' AND `reasoning_task_status` is 'idle' or 'processing').
-    - File is **synchronization success** if both `matching_task_status` and `reasoning_task_status` are 'Success'.
-- **Links**:
-    - Files with 'synchronization success' will have an **investigate link** and potentially a **preview link** (if the file has been manually reviewed or received Grade A).
-    - If a file already has a preview link, the investigate link is no longer needed.
+        1. Matching & reasoning are still processing (`matching_task_status` is 'PROCESSING' AND `reasoning_task_status` is 'IDLE' or 'PROCESSING').
+        2. Matching is successful & reasoning is still processing (`matching_task_status` is 'SUCCESS' AND `reasoning_task_status` is 'IDLE' or 'PROCESSING').
+    - File is **synchronization success** if both `matching_task_status` and `reasoning_task_status` are 'SUCCESS'.
+    - Check the matching and reasoning task statuses to determine if the file is still processing or has completed synchronization.
+    - If the files hasn't completed synchronization, inform the user that the file is still being processed and DON'T provide any links.
+    - If the file has completed synchronization, you MUST check the grade and provide the appropriate link based on the grade.
+    - If the grade is "A" provide preview link, if not A provide investigate link.
+    - **DON'T** provide both links together, only provide one link based on the grade.
+    - **CRITICAL — link value:** ALWAYS `SELECT` the `preview_url` / `investigate_url` column and return that **exact string value verbatim** as the link. **NEVER** construct, guess, shorten, or reconstruct the URL yourself (e.g. do not build `/batch-synchronization/investigate?file_id=...` manually with only `file_id`) — the stored value already contains all the parameters the frontend needs, and hand-built partial URLs render an incomplete/different-looking page. If the relevant URL column is `NULL`, tell the user no link is available yet instead of fabricating one.
 
 ### 2. `master` — National Population Master Registry
 **Purpose:** The **source-of-truth** identity registry containing the full national
