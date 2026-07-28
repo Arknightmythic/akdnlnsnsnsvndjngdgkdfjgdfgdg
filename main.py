@@ -19,7 +19,6 @@ from reasoning.routes import ReasoningRoutes
 from retrieval.routes import RetrieveDataRoutes
 from chatbot.routes import ChatbotRoutes
 from dotenv import load_dotenv
-from reasoning.routes import ReasoningRoutes
 from redis.asyncio import Redis
 
 from util.latency_tracker import LatencyTrackingMiddleware

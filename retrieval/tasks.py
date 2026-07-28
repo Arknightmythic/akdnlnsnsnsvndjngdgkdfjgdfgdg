@@ -9,9 +9,11 @@ from minio import Minio
 from redis import Redis as SyncRedis
 from urllib.parse import urlparse
 
+
 from worker import celery_app
 from retrieval.repository import RetrieveRepository
 from util.parquet_loader import ParquetLoader
+
 
 
 def _make_engine():
@@ -60,7 +62,6 @@ class ExportTask(Task):
             self._engine = _make_engine()
         return self._engine
 
-
     @property
     def minio_client(self):
         if self._minio_client is None:
@@ -79,6 +80,13 @@ class ExportTask(Task):
     name="retrieval.generate_export_csv",
     acks_late=True,
 )
+
+@celery_app.task(
+    bind=True,
+    base=ExportTask,
+    name="retrieval.generate_export_csv",
+    acks_late=True,
+)
 def generate_export_csv(self, file_id: str):
     # repo dibuat SEBELUM try, bukan di dalamnya. Kalau ini tetap di dalam try
     # dan pembuatannya sendiri yang gagal, blok except di bawah akan menembak
@@ -88,10 +96,10 @@ def generate_export_csv(self, file_id: str):
     try:
         repo.update_export_status(file_id, "PROCESSING")
 
+
         meta = repo.get_minio_path(file_id)
         if not meta:
             raise Exception("File meta not found")
-
 
         bucket_name = os.getenv("RAW_BUCKET_NAME")
 
@@ -150,6 +158,7 @@ def generate_export_csv(self, file_id: str):
         
         repo.update_export_status(file_id, "READY", match_path, unmatch_path)
         return {"status": "SUCCESS", "file_id": file_id}
+
 
     except Exception as e:
         repo.update_export_status(file_id, "FAILED")
