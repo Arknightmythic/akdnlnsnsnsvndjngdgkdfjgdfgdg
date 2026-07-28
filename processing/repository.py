@@ -5,7 +5,6 @@ from sqlalchemy import text
 class StarrocksService:
     def __init__(self, engine):
         self.engine = engine
-        print("Starrocks Service Initialized!")
 
     def load_matching_query(self, grade):
         query = text("""

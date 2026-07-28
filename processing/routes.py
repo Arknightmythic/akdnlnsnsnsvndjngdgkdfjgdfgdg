@@ -13,7 +13,6 @@ class MatchFileRoutes:
     def __init__(self):
         self.router = APIRouter()
         self.setup_routes()
-        print("Routes initialized")
 
     def setup_routes(self):
 

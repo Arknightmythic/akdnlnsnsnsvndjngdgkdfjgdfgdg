@@ -4,7 +4,7 @@ from .custom_query_builder import resolve_clean_base
 class ScoringService:
 
     def __init__(self):
-        print("Scoring Service Initiated!")
+        pass
 
     def compute_dynamic_similarity_score(self, active_pairs, row):
         total_score = 0.0

@@ -23,7 +23,6 @@ class UploadFileHandler:
         self.metadata_service = MetadataService(starrocks_engine)
         self.grader_service = GraderService(starrocks_engine)
         self.audit_service = AuditService(starrocks_engine)
-        print("Upload Handler Initialized")
 
    
     def _sync_polars_read(self, content):

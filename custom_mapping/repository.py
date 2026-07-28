@@ -25,7 +25,6 @@ MASTER_MATCHING_COLUMNS = [
 class CustomMappingRepository:
     def __init__(self, engine):
         self.engine = engine
-        print("Custom Mapping Repository Initialized!")
 
     def get_uploaded_file(self, file_id):
         query = text("""

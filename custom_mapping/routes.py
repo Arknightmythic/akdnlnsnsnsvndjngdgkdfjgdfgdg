@@ -13,7 +13,6 @@ class CustomMappingRoutes:
     def __init__(self):
         self.router = APIRouter()
         self.setup_routes()
-        print("Custom Mapping Routes initialized")
 
     def _build_service(self, request: Request) -> CustomMappingService:
         return CustomMappingService(

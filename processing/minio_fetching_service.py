@@ -7,7 +7,6 @@ class ObjectStorageService:
     def __init__ (self, minio_client, bucket_name):
         self.minio_client = minio_client
         self.bucket_name = bucket_name
-        print("Object Storage Service Initiated!")
     
     def load_parquet_from_minio(self, object_name, column_rename_map: dict | None = None):
         response = self.minio_client.get_object(

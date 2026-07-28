@@ -1,0 +1,38 @@
+# Virtual env host (Windows) — tidak relevan/kompatibel di dalam container Linux
+.venv
+env/
+venv/
+ENV/
+
+# Secrets — DIINJEK saat runtime lewat env_file di docker-compose.yml,
+# BUKAN di-bake ke dalam image
+.env
+.env_example
+.env.*
+
+# VCS & editor
+.git
+.gitignore
+.vscode
+.idea
+
+# Python cache/build artifacts
+__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+build/
+dist/
+
+# Celery runtime state lokal (di container pakai volume terpisah, lihat compose)
+celerybeat-schedule*
+celerybeat.pid
+*.rdb
+*.aof
+
+# Data/scratch lokal, bukan bagian dari source
+data/
+compare/
+*.log
