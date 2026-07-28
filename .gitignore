@@ -253,3 +253,5 @@ chatbot/knowledge/tests/retriever_results.json
 code_handle_ai/
 output_tests/
 
+skills-lock.json
+    

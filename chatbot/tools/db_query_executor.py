@@ -37,10 +37,11 @@ class RunQueryBuilder:
         dangerous_keywords = ["drop", "delete", "update", "insert", "alter", "create", "truncate", "grant", "revoke"]
         
         query = re.sub(r"```(?:sql)?\s*|\s*```", "", query, flags=re.IGNORECASE).strip()
-        if any(keyword in query.lower() for keyword in dangerous_keywords):
+        if any(re.search(rf"\b{keyword}\b", query, re.IGNORECASE) for keyword in dangerous_keywords):
             return {"result": "[WARNING] The query contains potentially dangerous operations. Only SELECT statements are allowed.", "is_dangerous": True}
         if not query.lower().startswith("select"):
             return {"result": "[WARNING] The query is not a SELECT statement, which is required.", "is_dangerous": True}
+
         return {"is_dangerous": False}
     
     def _execution_query(self, state: ExecutionState)-> ExecutionState:
@@ -69,7 +70,7 @@ def run_query(query: str)-> dict:
     Executes a raw MySQL/StarRocks SELECT query against the database and returns the result.
         
     Args:
-        query (str): The strictly READ-ONLY SELECT SQL query to execute. Do NOT wrap the query in markdown formatting (e.g., no ```sql block).
+        query (str): The strictly READ-ONLY SELECT SQL query to execute. MANDATORY: MUST ALWAYS include an explicit LIMIT clause (e.g. LIMIT 20 or LIMIT 50) unless performing an aggregate function. Do NOT wrap the query in markdown formatting (e.g., no ```sql block).
             
     Returns:
         dict: A dictionary containing the query execution state.
