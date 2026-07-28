@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Request, Query, BackgroundTasks
-from fastapi import APIRouter, Request, Query, BackgroundTasks
 from .handler import RetrieveDataHandler
 from audit.writer import AuditWriter
 from util.parquet_loader import ParquetLoader
@@ -149,7 +148,6 @@ class RetrieveDataRoutes:
         @self.router.get("/manual-review-data")
         async def manual_review_data(
             request: Request,
-            background_tasks: BackgroundTasks,
             background_tasks: BackgroundTasks,
             file_id: str = Query(...),
             page: int = Query(..., ge=1),

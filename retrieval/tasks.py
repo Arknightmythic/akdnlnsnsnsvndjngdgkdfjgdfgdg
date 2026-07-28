@@ -5,13 +5,10 @@ import asyncio
 import pandas as pd
 from celery import Task
 from sqlalchemy import create_engine, text
-from sqlalchemy import create_engine, text
 from minio import Minio
 from redis import Redis as SyncRedis
 from urllib.parse import urlparse
 
-from redis import Redis as SyncRedis
-from urllib.parse import urlparse
 
 from worker import celery_app
 from retrieval.repository import RetrieveRepository
@@ -123,7 +120,6 @@ def generate_export_csv(self, file_id: str):
         match_list = []
         for r in match_rows:
             inc = parquet_map.get(str(r["id_incoming"]), {}).copy()
-            inc.pop("id", None)
             inc.pop("id", None)
             mst = master_map.get(r["nik_master"], {})
             row_data = {**inc}
