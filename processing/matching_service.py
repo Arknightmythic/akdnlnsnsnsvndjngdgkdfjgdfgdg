@@ -2,7 +2,6 @@ import time
 import json
 import duckdb
 import polars as pl
-import time
 from sqlalchemy import text
 from .string_similarity import ScoringService
 from .minio_fetching_service import ObjectStorageService
