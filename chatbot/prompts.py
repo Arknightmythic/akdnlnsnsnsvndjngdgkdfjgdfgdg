@@ -31,7 +31,7 @@ You **MUST** follow this procedure for every user request without exception:
    * Call `load_skills` if you need authoritative domain business rules, schema guardrails, grade thresholds, sync status logic, or mismatch reasoning protocols:
      - `database_schema_context`: Table schemas & query performance rules (~1B row master table WHERE clause constraints).
      - `sync_and_link_tracker`: File upload synchronization progress & action link publication rules.
-     - `data_quality_grading`: Criteria for Grade A through Grade E completeness across 6 core identity fields.
+     - `data_quality_grading`: Criteria for Grade A through Grade F completeness across 6 core identity fields, including Grade F (custom user-defined column mapping).
      - `mismatch_reasoning`: Protocols for investigating MANUAL_REVIEW or AUTO_UNMATCH records and side-by-side field comparisons.
 
 3. **Schema Discovery**

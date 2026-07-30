@@ -25,9 +25,16 @@ This skill provides authoritative domain context for database tables and enforce
 - **Safety:** Always filter by `file_id` or `id_incoming`. Avoid scanning full table.
 - **Human Readable Labels:** Join `institution i JOIN ref_match_results r ON i.match_result = r.id`.
 
+### `custom_field_mapping` (Grade F Column Pairings)
+- **Purpose:** For Grade F ('custom') files only — stores the pairing between a master
+  column and the incoming file's own column name, plus the scoring `weight` set by the user.
+- **Filter:** Only rows with `is_active = 1` are in effect; inactive rows are kept for audit trail.
+- **Related columns on `uploaded_files`:** `custom_mapping_task_status` (GenAI pairing progress)
+  and `is_custom_ready` (1 = user has confirmed the weights, matching may run).
+
 ### Reference Lookup Tables
 Static lookup tables mapping numeric codes to human labels. Always JOIN these:
-- `ref_grades`: Grade codes to quality labels ('A' through 'E').
+- `ref_grades`: Grade codes to quality labels ('A' through 'F', where 'F' = custom/user-defined mapping).
 - `ref_match_results`: `AUTO_MATCH`, `AUTO_UNMATCH`, `MANUAL_REVIEW`, `MANUAL_MATCH`, `MANUAL_UNMATCH`.
 - `ref_process`: `UPLOADED`, `GRADED`.
 - `ref_sync_statuses`: `In Progress`, `Awaiting Action`, `Completed`.

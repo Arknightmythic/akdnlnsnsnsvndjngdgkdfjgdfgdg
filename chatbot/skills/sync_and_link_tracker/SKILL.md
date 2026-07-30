@@ -20,8 +20,29 @@ When synchronization is complete, publish appropriate action links based on `upl
 
 - **Grade 'A':**
   - Provide **Preview Link only**.
-- **Non-Grade 'A' (Grade B, C, D, or E):**
+- **Non-Grade 'A' (Grade B, C, D, E, or F):**
   - Provide **Investigate Link only**.
+
+**Ground truth over grade:** the backend already decides which link applies and
+stores the result — `preview_url` is filled when the file is fully completed,
+`investigate_url` when rows still await manual review, and the other column is
+set to `NULL`. The grade-based rule above is only a shortcut. If the two ever
+disagree, **trust the non-NULL column**, not the grade.
+
+## 2a. Grade 'F' (Custom Mapping) — Extra Pre-Conditions
+Grade 'F' files carry a preparation stage that Grades A–E do not have. Before
+matching can even begin, the user must define and confirm a custom field mapping.
+Check these on `uploaded_files` **before** discussing links:
+
+- `is_custom_ready` = **0** → the user has not confirmed the column pairings and
+  weights yet. Matching has not run. **DO NOT** provide any links. Tell the user
+  the file still needs its custom field mapping confirmed.
+- `custom_mapping_task_status` = `PROCESSING` → GenAI is still proposing the
+  column pairings. **DO NOT** provide any links.
+- `custom_mapping_task_status` = `FAILED` → pairing generation failed; the user
+  needs to retry it. **DO NOT** provide any links.
+- `is_custom_ready` = **1** → mapping confirmed. From here on, evaluate
+  synchronization status and publish links exactly like any non-Grade-'A' file.
 
 ## 3. Mandatory Link Constraints
 - **NEVER** provide both preview and investigate links simultaneously for the same file.
