@@ -291,7 +291,7 @@ class MatchingService:
                     "tempat_lahir_incoming": row.get("tempat_lahir"),
                     "area_incoming": None,
                     "tanggal_lahir_incoming": row.get("tanggal_lahir"),
-                    "jenis_kelamin": row.get("jenis_kelamin"),
+                    "jenis_kelamin_incoming": row.get("jenis_kelamin"),
                     "nama_ibu_incoming": row.get("nama_ibu")
                 })
 
@@ -494,7 +494,7 @@ class MatchingService:
                     "tempat_lahir_incoming": incoming_row.get("tempat_lahir"),
                     "area_incoming": None,
                     "tanggal_lahir_incoming": incoming_row.get("tanggal_lahir"),
-                    "jenis_kelamin": incoming_row.get("jenis_kelamin"),
+                    "jenis_kelamin_incoming": incoming_row.get("jenis_kelamin"),
                     "nama_ibu_incoming": incoming_row.get("nama_ibu")
                 })
 
@@ -863,7 +863,7 @@ class MatchingService:
                     "tempat_lahir_incoming": incoming_row.get("tempat_lahir"),
                     "area_incoming": None,
                     "tanggal_lahir_incoming": incoming_row.get("tanggal_lahir"),
-                    "jenis_kelamin": incoming_row.get("jenis_kelamin"),
+                    "jenis_kelamin_incoming": incoming_row.get("jenis_kelamin"),
                     "nama_ibu_incoming": incoming_row.get("nama_ibu")
                 })
 

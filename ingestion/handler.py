@@ -2,7 +2,7 @@ import uuid
 import io
 import os
 import json
-from datetime import datetime, UTC
+from datetime import datetime
 from typing import List
 import time
 from dotenv import load_dotenv
@@ -23,7 +23,6 @@ class UploadFileHandler:
         self.metadata_service = MetadataService(starrocks_engine)
         self.grader_service = GraderService(starrocks_engine)
         self.audit_service = AuditService(starrocks_engine)
-        print("Upload Handler Initialized")
 
    
     def _sync_polars_read(self, content):
@@ -80,7 +79,9 @@ class UploadFileHandler:
         # Tambahkan parameter opsional 'filename'
         def emit_event(step: str, message: str, filename: str = None):
             payload = {
-                "timestamp": datetime.now(UTC).strftime("%H:%M:%S"),
+                # naive local/Jakarta — konsisten dengan timestamp lain di aplikasi
+                # ini (lihat BUG_FIXING_GUIDE.md #9)
+                "timestamp": datetime.now().strftime("%H:%M:%S"),
                 "step": step, 
                 "message": message
             }
@@ -98,7 +99,7 @@ class UploadFileHandler:
                 yield emit_event("ERROR", f"{file.filename} is not a CSV file", file.filename)
                 continue 
 
-            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             unique_id = uuid.uuid4().hex[:8]
 
             # Sisipkan file.filename di argumen ke-3

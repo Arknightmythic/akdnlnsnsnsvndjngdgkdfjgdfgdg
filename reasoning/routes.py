@@ -4,7 +4,6 @@ class ReasoningRoutes:
     def __init__(self):
         self.router = APIRouter()
         self.setup_routes()
-        print("Reasoning Routes initialized")
 
     def setup_routes(self):
         @self.router.post("/run/")

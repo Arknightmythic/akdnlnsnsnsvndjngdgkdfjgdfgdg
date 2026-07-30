@@ -81,7 +81,13 @@ class RetrieveDataHandler:
         meta = self.repository.get_minio_path(file_id)
         if not meta:
             raise HTTPException(status_code=404, detail="File not found")
-        if meta["is_sync"] != 1 and meta["sync_status"] != 3:
+        # `or`, bukan `and`: kedua syarat HARUS terpenuhi (is_sync==1 DAN
+        # sync_status==3) supaya file boleh diakses sebagai preview. Sebelumnya
+        # pakai `and` di sini membuat guard ini nyaris tidak pernah aktif — sejak
+        # matching selesai is_sync sudah bernilai 1 untuk SEMUA file (termasuk
+        # yang masih "awaiting action"), jadi `is_sync != 1` nyaris selalu False
+        # dan sisi kanan `and` tidak pernah dicek (BUG_FIXING_GUIDE.md).
+        if meta["is_sync"] != 1 or meta["sync_status"] != 3:
             raise HTTPException(status_code=409, detail="File has not been synchronized or completed yet")
 
         rows        = self.repository.get_completed_data(file_id)
@@ -114,7 +120,11 @@ class RetrieveDataHandler:
             })
             unmatch_result.append({"institution": institution})
 
-        result = {"data": {"match": match_result, "unmatch": unmatch_result}}
+        result = {
+            "institution_name": meta["institution_name"],
+            "grade": meta["grade"],
+            "data": {"match": match_result, "unmatch": unmatch_result},
+        }
         cache_value = jsonable_encoder(result)
         await self.redis.set(cache_key, json.dumps(cache_value), ex=604800)
         return result
@@ -141,7 +151,11 @@ class RetrieveDataHandler:
         meta = self.repository.get_minio_path(file_id)
         if not meta:
             raise HTTPException(status_code=404, detail="File not found")
-        if meta["is_sync"] != 1 and meta["sync_status"] != 2:
+        # Sama seperti guard di get_preview_data: harus `or`, bukan `and`,
+        # supaya guard ini benar-benar menolak akses ke file yang statusnya
+        # sudah bukan "awaiting action" lagi (mis. link investigate basi untuk
+        # file yang sudah di-mark-as-completed).
+        if meta["is_sync"] != 1 or meta["sync_status"] != 2:
             raise HTTPException(
                 status_code=409,
                 detail="File has not been completely synchronized yet or do not need manual review.",
@@ -169,6 +183,8 @@ class RetrieveDataHandler:
 
         total_pages = (total_rows + self.PAGE_SIZE_SYNCHRONIZED - 1) // self.PAGE_SIZE_SYNCHRONIZED
         return {
+            "institution_name": meta["institution_name"],
+            "grade": meta["grade"],
             "page": page, "page_size": self.PAGE_SIZE_GRADED,
             "total_rows": total_rows, "total_pages": total_pages,
             "has_next": page < total_pages, "has_prev": page > 1,
@@ -237,10 +253,18 @@ class RetrieveDataHandler:
                 # URL lengkap dengan parameter
                 preview_url = f"/batch-synchronization/preview?file_id={file_id}&grade={safe_grade}&name={safe_name}"
 
+                # investigate_url HARUS di-NULL-kan di sini juga — file yang baru
+                # saja "Mark as Completed" pindah dari status "awaiting action" ke
+                # "completed", jadi link investigate lama sudah tidak berlaku lagi.
+                # Tanpa ini, kolom investigate_url tetap menyimpan link basi yang
+                # bisa saja diambil chatbot (ia hanya SELECT kolom mentah) dan
+                # ditunjukkan ke user walau tombol di List sudah hanya menampilkan
+                # Preview untuk file ini (lihat BUG_FIXING_GUIDE.md).
                 conn.execute(
                     text("""
-                        UPDATE uploaded_files 
-                        SET preview_url = :p_url
+                        UPDATE uploaded_files
+                        SET preview_url = :p_url,
+                            investigate_url = NULL
                         WHERE file_id = :file_id
                     """),
                     {"file_id": file_id, "p_url": preview_url}

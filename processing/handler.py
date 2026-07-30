@@ -19,8 +19,6 @@ class MatchFileHandler:
             grade_rules=grade_rules
         )
 
-        print("Match Handler Initialized")
-
     def process_file(self, file_id: str):
         print("Processing data...")
 

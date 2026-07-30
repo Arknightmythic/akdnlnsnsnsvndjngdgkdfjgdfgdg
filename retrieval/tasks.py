@@ -88,8 +88,12 @@ class ExportTask(Task):
     acks_late=True,
 )
 def generate_export_csv(self, file_id: str):
+    # repo dibuat SEBELUM try, bukan di dalamnya. Kalau ini tetap di dalam try
+    # dan pembuatannya sendiri yang gagal, blok except di bawah akan menembak
+    # `repo.update_export_status(...)` pada `repo` yang belum ke-assign —
+    # UnboundLocalError yang menutupi error asli (BUG_FIXING_GUIDE.md #6).
+    repo = RetrieveRepository(self.engine)
     try:
-        repo = RetrieveRepository(self.engine)
         repo.update_export_status(file_id, "PROCESSING")
 
 
