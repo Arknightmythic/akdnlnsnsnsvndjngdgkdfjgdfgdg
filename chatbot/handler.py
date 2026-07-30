@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 import os
 import json
 
-from chatbot.tools import get_table_names, get_table_detail, run_query, retrieve
+from chatbot.tools import get_table_names, get_table_detail, run_query, retrieve, load_skills
 from chatbot.prompts import SYNCHRONO_AGENT_SYSTEM_PROMPT, TITLE_GENERATOR_PROMPT
 from chatbot.database import StarRocksSaver, mysql_db as db
 from chatbot.middlewares import PIIMiddleware, PromptInjectionGuardrail
@@ -53,7 +53,7 @@ class ChatbotHandler:
             stream_usage=True
         )
         self._system_prompt = SystemMessage(SYNCHRONO_AGENT_SYSTEM_PROMPT)
-        self._tools = [get_table_names, get_table_detail, run_query, retrieve]
+        self._tools = [get_table_names, get_table_detail, run_query, retrieve, load_skills]
         self._middleware = [
                     SummarizationMiddleware(
                         model=self._model,
