@@ -454,10 +454,28 @@ class MatchingServiceV2:
         if all_manual_review_rows:
             self.starrocks_service.insert_manual_review(all_manual_review_rows)
 
+        # set_sync_complete() HARUS jalan SEBELUM trigger_ai_reasoning().
+        #
+        # trigger_ai_reasoning() men-dispatch task Celery yang langsung menulis
+        # `UPDATE uploaded_files SET reasoning_task_status='PROCESSING'` ke BARIS
+        # YANG SAMA. UPDATE pada tabel primary-key StarRocks bersifat
+        # read-modify-write: dua UPDATE yang tumpang tindih saling menimpa, dan
+        # yang commit belakangan ikut menulis balik nilai BASI untuk kolom yang
+        # tidak ia ubah.
+        #
+        # Dengan urutan lama (dispatch dulu, commit belakangan), is_sync dan
+        # sync_status hasil set_sync_complete bisa ter-revert ke nilai lama
+        # (0 / 1) walau kodenya sudah jalan. Gejalanya: file mentok "In Progress"
+        # padahal matching SUCCESS dan export sudah READY — terbukti pada file
+        # a40f00be (grade C, 0 manual review, export READY, tapi sync_status=1).
+        #
+        # Ini pola race yang persis sama dengan yang sudah didokumentasikan di
+        # processing/routes.py: tulis status ke DB dulu, baru dispatch ke Celery.
+        self.starrocks_service.set_sync_complete(file_id, final_sync_status)
+
         self._log("Triggering AI...")
         print("Triggering AI...")
         self.trigger_ai_reasoning(file_id)
-        self.starrocks_service.set_sync_complete(file_id, final_sync_status)
 
         self._log("Batch insert completed")
         print("Batch insert completed")
@@ -575,10 +593,28 @@ class MatchingServiceV2:
         if all_manual_review_rows:
             self.starrocks_service.insert_manual_review(all_manual_review_rows)
 
+        # set_sync_complete() HARUS jalan SEBELUM trigger_ai_reasoning().
+        #
+        # trigger_ai_reasoning() men-dispatch task Celery yang langsung menulis
+        # `UPDATE uploaded_files SET reasoning_task_status='PROCESSING'` ke BARIS
+        # YANG SAMA. UPDATE pada tabel primary-key StarRocks bersifat
+        # read-modify-write: dua UPDATE yang tumpang tindih saling menimpa, dan
+        # yang commit belakangan ikut menulis balik nilai BASI untuk kolom yang
+        # tidak ia ubah.
+        #
+        # Dengan urutan lama (dispatch dulu, commit belakangan), is_sync dan
+        # sync_status hasil set_sync_complete bisa ter-revert ke nilai lama
+        # (0 / 1) walau kodenya sudah jalan. Gejalanya: file mentok "In Progress"
+        # padahal matching SUCCESS dan export sudah READY — terbukti pada file
+        # a40f00be (grade C, 0 manual review, export READY, tapi sync_status=1).
+        #
+        # Ini pola race yang persis sama dengan yang sudah didokumentasikan di
+        # processing/routes.py: tulis status ke DB dulu, baru dispatch ke Celery.
+        self.starrocks_service.set_sync_complete(file_id, final_sync_status)
+
         self._log("Triggering AI...")
         print("Triggering AI...")
         self.trigger_ai_reasoning(file_id)
-        self.starrocks_service.set_sync_complete(file_id, final_sync_status)
 
         self._log("Batch insert completed")
         print("Batch insert completed")
