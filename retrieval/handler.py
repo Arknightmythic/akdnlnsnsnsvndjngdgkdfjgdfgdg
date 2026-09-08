@@ -81,13 +81,18 @@ class RetrieveDataHandler:
         meta = self.repository.get_minio_path(file_id)
         if not meta:
             raise HTTPException(status_code=404, detail="File not found")
-        # `or`, bukan `and`: kedua syarat HARUS terpenuhi (is_sync==1 DAN
-        # sync_status==3) supaya file boleh diakses sebagai preview. Sebelumnya
-        # pakai `and` di sini membuat guard ini nyaris tidak pernah aktif — sejak
-        # matching selesai is_sync sudah bernilai 1 untuk SEMUA file (termasuk
-        # yang masih "awaiting action"), jadi `is_sync != 1` nyaris selalu False
-        # dan sisi kanan `and` tidak pernah dicek (BUG_FIXING_GUIDE.md).
-        if meta["is_sync"] != 1 or meta["sync_status"] != 3:
+        # `sync_status` adalah SATU-SATUNYA sumber kebenaran untuk tahap hidup
+        # file: 1=In Progress, 2=Awaiting Action, 3=Completed (lihat
+        # ref_sync_statuses). Nilai 3 sudah berarti "selesai", jadi mengecek
+        # is_sync di sini tidak menambah informasi apa pun — hanya menambah satu
+        # cara untuk gagal.
+        #
+        # is_sync sengaja TIDAK lagi ikut dicek: kolom itu flag legacy yang bisa
+        # tidak sinkron dengan sync_status. Ditemukan file yang sudah selesai
+        # diproses penuh (matching SUCCESS, reasoning SUCCESS, sync_status benar)
+        # tapi is_sync-nya 0, sehingga endpoint ini menolak akses ke data yang
+        # sebenarnya sudah siap. Lihat CHATBOT_SQL_ACCURACY_AUDIT.md.
+        if meta["sync_status"] != 3:
             raise HTTPException(status_code=409, detail="File has not been synchronized or completed yet")
 
         rows        = self.repository.get_completed_data(file_id)
@@ -151,11 +156,13 @@ class RetrieveDataHandler:
         meta = self.repository.get_minio_path(file_id)
         if not meta:
             raise HTTPException(status_code=404, detail="File not found")
-        # Sama seperti guard di get_preview_data: harus `or`, bukan `and`,
-        # supaya guard ini benar-benar menolak akses ke file yang statusnya
-        # sudah bukan "awaiting action" lagi (mis. link investigate basi untuk
-        # file yang sudah di-mark-as-completed).
-        if meta["is_sync"] != 1 or meta["sync_status"] != 2:
+        # Sama seperti guard di get_preview_data: hanya `sync_status` yang
+        # dipakai. Nilai 2 ("Awaiting Action") sudah tepat menandai file yang
+        # butuh review manual — sekaligus tetap menolak link investigate basi
+        # untuk file yang sudah di-mark-as-completed (sync_status jadi 3).
+        # is_sync TIDAK ikut dicek karena bisa 0 walau file sudah selesai
+        # diproses penuh, sehingga dulu memblokir data yang sebenarnya siap.
+        if meta["sync_status"] != 2:
             raise HTTPException(
                 status_code=409,
                 detail="File has not been completely synchronized yet or do not need manual review.",

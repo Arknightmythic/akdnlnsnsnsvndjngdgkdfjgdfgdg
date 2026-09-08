@@ -1,61 +1,119 @@
 # FILE SYNCHRONIZATION & LINK ROUTING SKILL
 
 ## Purpose
-This skill defines business logic for determining file upload synchronization status and applying correct link publication rules based on file quality grade.
+Determine whether an uploaded file has finished synchronising, and decide which action
+link (preview or investigate) may be published to the user.
 
-## 1. Synchronization Status Evaluation Rules
-Check `uploaded_files.matching_task_status` and `uploaded_files.reasoning_task_status`:
+---
 
-- **In Synchronization (In Progress):**
-  - Scenario 1: `matching_task_status` = 'PROCESSING' AND `reasoning_task_status` IN ('IDLE', 'PROCESSING')
-  - Scenario 2: `matching_task_status` = 'SUCCESS' AND `reasoning_task_status` IN ('IDLE', 'PROCESSING')
-  - **Action:** Inform the user that the file is still undergoing synchronization/processing. **DO NOT** provide any download, preview, or investigation links.
+## 1. `sync_status` Is the Single Source of Truth
 
-- **Synchronization Completed:**
-  - Condition: BOTH `matching_task_status` AND `reasoning_task_status` are 'SUCCESS'.
-  - **Action:** Proceed to evaluate file `grade` to determine link publication.
+The backend writes the file's lifecycle stage into **`uploaded_files.sync_status`**.
+This is the authoritative signal — it is what the Batch Synchronization screen displays,
+and it is the only column whose values are guaranteed consistent.
 
-## 2. Link Publication Rules (Post-Synchronization)
-When synchronization is complete, publish appropriate action links based on `uploaded_files.grade`:
+| `sync_status` | `ref_sync_statuses.status_code` | Meaning | Links allowed |
+|---|---|---|---|
+| `NULL` | *(no label — use 'Belum Disinkronkan')* | file uploaded and graded, matching never started | **none** |
+| `1` | `In Progress` | matching done, AI reasoning still running | **none** |
+| `2` | `Awaiting Action` | reasoning finished, rows await human review | **investigate only** |
+| `3` | `Completed` | file fully finished | **preview only** |
 
-- **Grade 'A':**
-  - Provide **Preview Link only**.
-- **Non-Grade 'A' (Grade B, C, D, E, or F):**
-  - Provide **Investigate Link only**.
+Always resolve the label with a `LEFT JOIN` to `ref_sync_statuses`, and always
+`COALESCE` the NULL case — 63 of 141 files currently have `sync_status = NULL` and an
+`INNER JOIN` would make them vanish from your answer entirely.
 
-**Ground truth over grade:** the backend already decides which link applies and
-stores the result — `preview_url` is filled when the file is fully completed,
-`investigate_url` when rows still await manual review, and the other column is
-set to `NULL`. The grade-based rule above is only a shortcut. If the two ever
-disagree, **trust the non-NULL column**, not the grade.
+```sql
+LEFT JOIN ref_sync_statuses AS rs ON uf.sync_status = rs.sync_status_id
+...
+COALESCE(rs.status_code, 'Belum Disinkronkan') AS sync_status
+```
 
-## 2a. Grade 'F' (Custom Mapping) — Extra Pre-Conditions
-Grade 'F' files carry a preparation stage that Grades A–E do not have. Before
-matching can even begin, the user must define and confirm a custom field mapping.
-Check these on `uploaded_files` **before** discussing links:
+### Task status columns are diagnostics, not the verdict
 
-- `is_custom_ready` = **0** → the user has not confirmed the column pairings and
-  weights yet. Matching has not run. **DO NOT** provide any links. Tell the user
-  the file still needs its custom field mapping confirmed.
-- `custom_mapping_task_status` = `PROCESSING` → GenAI is still proposing the
-  column pairings. **DO NOT** provide any links.
-- `custom_mapping_task_status` = `FAILED` → pairing generation failed; the user
-  needs to retry it. **DO NOT** provide any links.
-- `is_custom_ready` = **1** → mapping confirmed. From here on, evaluate
-  synchronization status and publish links exactly like any non-Grade-'A' file.
+`matching_task_status` and `reasoning_task_status` describe *individual background
+workers*, not the file's overall stage. Use them only when the user asks specifically
+why something is stuck, or to add detail to a "still processing" answer.
 
-## 3. Mandatory Link Constraints
-- **NEVER** provide both preview and investigate links simultaneously for the same file.
-- **NEVER** provide any links if synchronization has not reached completion status.
+Do **not** derive completion from them. Real combinations currently in the database
+include `matching_task_status = 'SUCCESS'` with `reasoning_task_status = 'IDLE'` (26
+files) and `matching_task_status = 'PROCESSING'` with `reasoning_task_status = 'SUCCESS'`
+(3 files) — states that no simple two-column rule predicts correctly. `sync_status`
+already reflects the true outcome of all of them.
 
-## 4. Link Value — Use the Stored Column Verbatim
-- **ALWAYS** `SELECT` the `uploaded_files.preview_url` / `uploaded_files.investigate_url`
-  column and return that **exact string value verbatim** as the link.
-- **NEVER** construct, guess, shorten, or reconstruct the URL yourself — e.g. do not
-  hand-build `/batch-synchronization/investigate?file_id=...` from `file_id` alone.
-  The stored value already carries every parameter the frontend needs (`file_id`,
-  `grade`, `name`); a hand-built partial URL makes the page render with missing
-  columns and a wrong title, so it looks different from the same page opened via
-  the button in the Batch Synchronization list.
-- If the relevant URL column is `NULL`, tell the user no link is available yet
-  instead of fabricating one.
+Likewise `is_sync` is a coarse legacy flag and can disagree with `sync_status`
+(2 files have `is_sync = 0` while `sync_status = 2`). **Prefer `sync_status`.**
+
+---
+
+## 2. Which Link to Publish
+
+The backend has already decided this and stored the result. **Read the columns; do not
+infer.**
+
+- `preview_url` is filled when the file is completed (`sync_status = 3`);
+  `investigate_url` is set to `NULL`.
+- `investigate_url` is filled when rows still await manual review (`sync_status = 2`);
+  `preview_url` is set to `NULL`.
+
+**Rule: publish whichever of the two columns is non-NULL.** If both are NULL, no link is
+available yet — say so plainly instead of constructing one.
+
+> Note: file `grade` does **not** determine which link applies. Any older guidance
+> tying "Grade A → preview" is a rough heuristic only; `sync_status` and the stored URL
+> columns override it in every case.
+
+Only 8 files currently have a `preview_url` and 7 have an `investigate_url`, so "no link
+available yet" is a common and correct answer.
+
+---
+
+## 3. Grade F (Custom Mapping) — Extra Pre-Conditions
+
+Grade F files have a preparation stage that Grades A–E do not. Matching cannot start
+until the user confirms a custom field mapping. Check these on `uploaded_files`
+**before** discussing links:
+
+- `is_custom_ready = 0` → column pairings and weights are not confirmed. Matching has
+  not run. **No links.** Tell the user the file still needs its custom field mapping
+  confirmed.
+- `custom_mapping_task_status = 'PROCESSING'` → GenAI is still proposing pairings.
+  **No links.**
+- `custom_mapping_task_status = 'FAILED'` → pairing generation failed; the user needs to
+  retry it. **No links.**
+- `is_custom_ready = 1` → mapping confirmed. From here evaluate `sync_status` exactly
+  like any other file.
+
+To show the confirmed pairings, query `custom_field_mapping` with `is_active = 1`.
+
+---
+
+## 4. Mandatory Link Constraints
+
+- **NEVER** publish both preview and investigate links for the same file.
+- **NEVER** publish any link while `sync_status` is `NULL` or `1`.
+- **ALWAYS** return the stored column value **verbatim**. Never construct, guess,
+  shorten, or rebuild a URL — e.g. do not hand-build
+  `/batch-synchronization/investigate?file_id=...` from `file_id` alone. The stored value
+  already carries every parameter the frontend needs (`file_id`, `grade`, `name`); a
+  hand-built partial URL renders the page with missing columns and a wrong title.
+- If the relevant URL column is `NULL`, state that no link is available yet rather than
+  fabricating one.
+
+---
+
+## 5. Reference Query
+
+```sql
+SELECT uf.file_id, uf.original_filename, uf.institution_name,
+       rg.grade_code AS grade,
+       COALESCE(rs.status_code, 'Belum Disinkronkan') AS sync_status,
+       uf.matching_task_status, uf.reasoning_task_status,
+       uf.custom_mapping_task_status, uf.is_custom_ready,
+       uf.preview_url, uf.investigate_url
+FROM uploaded_files AS uf
+LEFT JOIN ref_grades AS rg        ON uf.grade       = rg.grade_id
+LEFT JOIN ref_sync_statuses AS rs ON uf.sync_status = rs.sync_status_id
+WHERE uf.file_id = '<file_id>'
+LIMIT 1
+```
